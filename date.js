@@ -3,7 +3,7 @@
  */
 function theme_datetime(variables) {
   try {
-    dpm(variables);
+    //dpm(variables);
     var html = '';
     
     // Make this a hidden field since the widget will just populate a value.
@@ -21,8 +21,6 @@ function theme_datetime(variables) {
       console.log('WARNING: theme_datetime() - unsupported widget type! (' + widget_type + ')');
     }
     
-    // Return the html;
-    console.log(html);
     return html;
   }
   catch (error) { drupalgap_error(error); }
@@ -37,10 +35,13 @@ function theme_date_select(variables) {
     // For each grain of the granulatiry, add a select list for each.
     $.each(variables.field_info_field.settings.granularity, function(grain, value){
         if (value) {
-          // Build a unique html element id for this select list.
+          // Build a unique html element id for this select list. Set up an
+          // onclick handler and send it the id of the hidden input that will
+          // hold the date value.
           var id = variables.attributes.id + '-' + grain;
           var attributes = {
-            'id':id
+            'id':id,
+            'onchange':"date_select_onchange(this, '" + variables.attributes.id + "')"
           };
           switch (grain) {
             case 'year':
@@ -55,7 +56,6 @@ function theme_date_select(variables) {
               // Build the options.
               var options = {};
               for (var i = low; i <= high; i++) {
-                console.log(i);
                 var option = year + i;
                 options[option] = '' + option;
               }
@@ -83,3 +83,16 @@ function theme_date_select(variables) {
   var field_name = element.name;
   
 }*/
+
+/**
+ * Handles the onchange event for date select lists. It is given a reference
+ * to the select list and the id of the hidden date field.
+ */
+function date_select_onchange(input, id) {
+  try {
+    alert('date_select_onchange - ' + id + ' and ' + $(input).attr('id') + '!');
+    $('#' + id).val('fudge');
+  }
+  catch (error) { drupalgap_error(error); }
+}
+
