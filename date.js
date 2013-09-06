@@ -90,8 +90,7 @@ function theme_date_select(variables) {
  */
 function date_select_onchange(input, id) {
   try {
-    alert('date_select_onchange - ' + id + ' and ' + $(input).attr('id') + '!');
-    $('#' + id).val('fudge');
+    $('#' + id).val($(input).val());
   }
   catch (error) { drupalgap_error(error); }
 }
