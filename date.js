@@ -31,7 +31,8 @@ function theme_datetime(variables) {
  */
 function theme_date_select(variables) {
   try {
-    var html = '';
+    var html = theme('select', variables);
+    return html;
     // For each grain of the granulatiry, add a select list for each.
     $.each(variables.field_info_field.settings.granularity, function(grain, value){
         if (value) {
@@ -59,8 +60,10 @@ function theme_date_select(variables) {
                 var option = year + i;
                 options[option] = '' + option;
               }
-              // Theme the select list.
-              html += theme('select', {'attributes':attributes, 'options':options});
+              // Build and theme the select list.
+              var select = {'attributes':attributes, 'options':options};
+              
+              html += theme('select', select);
               break;
             default:
               console.log('WARNING: theme_date_select() - unsupported grain! (' + grain + ')');
@@ -90,7 +93,77 @@ function theme_date_select(variables) {
  */
 function date_select_onchange(input, id) {
   try {
-    $('#' + id).val($(input).val());
+    // Grab the value, convert it to a unix timestamp, then set the hidden input
+    // value with it.
+    var year = $(input).val();
+    var parts = date_yyyy_mm_dd_hh_mm_ss_parts();
+    parts['year'] = year;
+    $('#' + id).val(date_yyyy_mm_dd_hh_mm_ss(parts));
+  }
+  catch (error) { drupalgap_error(error); }
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function date_field_widget_form(form, form_state, field, instance, langcode, items, delta, element) {
+  try {
+    items[delta].type = 'hidden';
+    if (items[delta].value == '' && items[delta].default_value == '' && instance.settings.default_value != '') {
+      items[delta].default_value = instance.settings.default_value;
+    }
+    if (items[delta].value == '' && items[delta].default_value != '') {
+      if (items[delta].default_value == 'now') {
+        var full_year = new Date().getFullYear();
+        items[delta].value = full_year;
+        items[delta].default_value = full_year;
+      }
+      else {
+        console.log('WARNING: date_field_widget_form() - unsupported default value: ' + items[delta].default_value);
+      }
+    }
+    // For each grain of the granulatiry, add a child for each.
+    $.each(field.settings.granularity, function(grain, value){
+        if (value) {
+          // Build a unique html element id for this select list. Set up an
+          // onclick handler and send it the id of the hidden input that will
+          // hold the date value.
+          var id = items[delta].id + '-' + grain;
+          var attributes = {
+            'id':id,
+            'onchange':"date_select_onchange(this, '" + items[delta].id + "')"
+          };
+          switch (grain) {
+            case 'year':
+              // Determine the current year and the range of year(s) to provide
+              // as options.
+              var date = new Date();
+              var year = parseInt(date.getFullYear());
+              var year_range = instance.widget.settings.year_range;
+              var parts = year_range.split(':');
+              var low = parseInt(parts[0]);
+              var high = parseInt(parts[1].replace('+', ''));
+              // Build the options.
+              var options = {};
+              for (var i = low; i <= high; i++) {
+                var option = year + i;
+                options[option] = '' + option;
+              }
+              // Build and theme the select list.
+              var select = {
+                type:'date_select',
+                value:items[delta].value,
+                'attributes':attributes,
+                'options':options
+              };
+              items[delta].children.push(select);
+              break;
+            default:
+              console.log('WARNING: date_field_widget_form() - unsupported grain! (' + grain + ')');
+              break;
+          }
+        }
+    });
   }
   catch (error) { drupalgap_error(error); }
 }
