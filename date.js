@@ -99,6 +99,13 @@ function date_select_onchange(input, id) {
     var parts = date_yyyy_mm_dd_hh_mm_ss_parts();
     parts['year'] = year;
     $('#' + id).val(date_yyyy_mm_dd_hh_mm_ss(parts));
+    // TODO - we're waiting for DG core to assembly the entity data string for
+    // the service resource call by iterating over the entity that is in the
+    // form state, then the date module can catch the form submission and plant
+    // the necessary form state values (e.g. timezone, etc - look at a node
+    // with a date field via the node retrieve json object and you'll see the
+    // properties that we probly need to get into the data string for the
+    // services call.
   }
   catch (error) { drupalgap_error(error); }
 }
