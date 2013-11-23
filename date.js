@@ -99,13 +99,6 @@ function date_select_onchange(input, id) {
     var parts = date_yyyy_mm_dd_hh_mm_ss_parts();
     parts['year'] = year;
     $('#' + id).val(date_yyyy_mm_dd_hh_mm_ss(parts));
-    // TODO - we're waiting for DG core to assembly the entity data string for
-    // the service resource call by iterating over the entity that is in the
-    // form state, then the date module can catch the form submission and plant
-    // the necessary form state values (e.g. timezone, etc - look at a node
-    // with a date field via the node retrieve json object and you'll see the
-    // properties that we probly need to get into the data string for the
-    // services call.
   }
   catch (error) { drupalgap_error(error); }
 }
@@ -115,20 +108,33 @@ function date_select_onchange(input, id) {
  */
 function date_field_widget_form(form, form_state, field, instance, langcode, items, delta, element) {
   try {
+    // Convert the item into a hidden field that will have its value populated
+    // dynamically be the widget.
     items[delta].type = 'hidden';
-    if (items[delta].value == '' && items[delta].default_value == '' && instance.settings.default_value != '') {
+    
+    // Determine if a value is set for this item.
+    var value_set = true;
+    if (typeof items[delta].value === 'undefined' || items[delta].value == '') {
+      value_set = false;
+    }
+    
+    // If the value isn't set, check if a default value is available.
+    if (!value_set && items[delta].default_value == '' && instance.settings.default_value != '') {
       items[delta].default_value = instance.settings.default_value;
     }
-    if (items[delta].value == '' && items[delta].default_value != '') {
+    
+    // If the value isn't set and we have a default value, let's set it.
+    if (!value_set && items[delta].default_value != '') {
       if (items[delta].default_value == 'now') {
-        var full_year = new Date().getFullYear();
-        items[delta].value = full_year;
-        items[delta].default_value = full_year;
+        var now = date_yyyy_mm_dd_hh_mm_ss();
+        items[delta].value = now;
+        items[delta].default_value = now;
       }
       else {
         console.log('WARNING: date_field_widget_form() - unsupported default value: ' + items[delta].default_value);
       }
     }
+    
     // For each grain of the granulatiry, add a child for each.
     $.each(field.settings.granularity, function(grain, value){
         if (value) {
@@ -156,10 +162,13 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
                 var option = year + i;
                 options[option] = '' + option;
               }
+              // Parse the year from the item's value.
+              var date = new Date(items[delta].value);
+              var year = parseInt(date.getFullYear());
               // Build and theme the select list.
               var select = {
                 type:'date_select',
-                value:items[delta].value,
+                value:year,
                 'attributes':attributes,
                 'options':options
               };
@@ -171,6 +180,19 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
           }
         }
     });
+  }
+  catch (error) { drupalgap_error(error); }
+}
+
+/**
+ * Implements hook_field_data_string().
+ */
+function date_field_data_string(entity_type, bundle, entity, instance, langcode, delta, options) {
+  try {
+    var data = '';
+    var date = new Date(entity[instance.field_name][langcode][delta]['value']);
+    data += entity_type + '[' + instance.field_name + '][' + langcode + '][' + delta + '][value][year]=' + parseInt(date.getFullYear()); 
+    return data;
   }
   catch (error) { drupalgap_error(error); }
 }
