@@ -187,11 +187,11 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 /**
  * Implements hook_field_data_string().
  */
-function date_field_data_string(entity_type, bundle, entity, instance, langcode, delta, options) {
+function date_field_data_string(entity_type, bundle, entity, field, instance, langcode, delta, options) {
   try {
     var data = '';
-    var date = new Date(entity[instance.field_name][langcode][delta]['value']);
-    data += entity_type + '[' + instance.field_name + '][' + langcode + '][' + delta + '][value][year]=' + parseInt(date.getFullYear()); 
+    var date = new Date(entity[field.field_name][langcode][delta]['value']);
+    data += entity_type + '[' + field.field_name + '][' + langcode + '][' + delta + '][value][year]=' + parseInt(date.getFullYear()); 
     return data;
   }
   catch (error) { drupalgap_error(error); }
