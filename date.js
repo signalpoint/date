@@ -18,7 +18,10 @@ function theme_datetime(variables) {
       html += fn.call(null, variables);
     }
     else {
-      console.log('WARNING: theme_datetime() - unsupported widget type! (' + widget_type + ')');
+      console.log('WARNING: theme_datetime() - unsupported widget type! (' +
+          widget_type +
+        ')'
+      );
     }
     
     return html;
@@ -185,15 +188,18 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 }
 
 /**
- * Implements hook_field_data_string().
+ * Implements hook_assemble_form_state_into_field().
  */
-function date_field_data_string(entity_type, bundle, entity, field, instance, langcode, delta, options) {
+function date_assemble_form_state_into_field(entity_type, bundle,
+  form_state_value, field, instance, langcode, delta) {
   try {
-    var data = '';
-    var date = new Date(entity[field.field_name][langcode][delta]['value']);
-    data += entity_type + '[' + field.field_name + '][' + langcode + '][' + delta + '][value][year]=' + parseInt(date.getFullYear()); 
-    return data;
+    var date = new Date(form_state_value); 
+    return {
+      year: date.getFullYear()
+    };
   }
-  catch (error) { drupalgap_error(error); }
+  catch (error) {
+    console.log('date_assemble_form_state_into_field - ' + error);
+  }
 }
 
