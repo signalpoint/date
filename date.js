@@ -86,7 +86,10 @@ function theme_date_select(variables) {
  */
 function date_select_onchange(input, id, grain) {
   try {
-    var date = new Date($('#' + id).val());
+    var date = null;
+    var current_val = $('#' + id).val();
+    if (!current_val) { date = new Date(); }
+    else { date = new Date(current_val); }
     switch (grain) {
       case 'year':
         date.setYear($(input).val());
@@ -125,13 +128,19 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     
     // If the value isn't set and we have a default value, let's set it.
     if (!value_set && items[delta].default_value != '') {
-      if (items[delta].default_value == 'now') {
-        var now = date_yyyy_mm_dd_hh_mm_ss();
-        items[delta].value = now;
-        items[delta].default_value = now;
-      }
-      else {
-        console.log('WARNING: date_field_widget_form() - unsupported default value: ' + items[delta].default_value);
+      switch (items[delta].default_value) {
+        case 'now':
+          var now = date_yyyy_mm_dd_hh_mm_ss();
+          items[delta].value = now;
+          items[delta].default_value = now;
+          break;
+        case 'blank':
+          items[delta].value = '';
+          items[delta].default_value = '';
+          break;
+        default:
+          console.log('WARNING: date_field_widget_form() - unsupported default value: ' + items[delta].default_value);
+          break;
       }
     }
     
@@ -158,10 +167,14 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               var parts = year_range.split(':');
               var low = parseInt(parts[0]);
               var high = parseInt(parts[1].replace('+', ''));
+              if (!high) {
+                var smoke_one = true;
+                high = year;
+              }
               // Build the options.
               var options = {};
               for (var i = low; i <= high; i++) {
-                var option = year + i;
+                var option = i;
                 options[option] = '' + option;
               }
               // Parse the year from the item's value.
