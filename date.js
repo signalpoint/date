@@ -79,29 +79,26 @@ function theme_date_select(variables) {
   catch (error) { drupalgap_error(error); }
 }
 
-/*function date_form_element_alter(form, element, variables) {
-  if (element.type != 'datetime') { return; }
-  //dpm(form);
-  //dpm(element);
-  dpm(variables);
-  
-  // Extract the field name.
-  var field_name = element.name;
-  
-}*/
-
 /**
  * Handles the onchange event for date select lists. It is given a reference
- * to the select list and the id of the hidden date field.
+ * to the select list, the id of the hidden date field, and the grain of the
+ * input.
  */
-function date_select_onchange(input, id) {
+function date_select_onchange(input, id, grain) {
   try {
-    // Grab the value, convert it to a unix timestamp, then set the hidden input
-    // value with it.
-    var year = $(input).val();
-    var parts = date_yyyy_mm_dd_hh_mm_ss_parts();
-    parts['year'] = year;
-    $('#' + id).val(date_yyyy_mm_dd_hh_mm_ss(parts));
+    var date = new Date($('#' + id).val());
+    switch (grain) {
+      case 'year':
+        date.setYear($(input).val());
+        break;
+      case 'month':
+        date.setMonth($(input).val()-1);
+        break;
+      case 'day':
+        date.setDate($(input).val());
+        break;
+    }
+    $('#' + id).val(date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(date)));
   }
   catch (error) { drupalgap_error(error); }
 }
@@ -138,6 +135,9 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
       }
     }
     
+    // Grab the current date.
+    var date = new Date();
+    
     // For each grain of the granulatiry, add a child for each.
     $.each(field.settings.granularity, function(grain, value){
         if (value) {
@@ -147,13 +147,12 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
           var id = items[delta].id + '-' + grain;
           var attributes = {
             'id':id,
-            'onchange':"date_select_onchange(this, '" + items[delta].id + "')"
+            'onchange':"date_select_onchange(this, '" + items[delta].id + "', '" + grain + "')"
           };
           switch (grain) {
             case 'year':
               // Determine the current year and the range of year(s) to provide
-              // as options.
-              var date = new Date();
+              // as options.          
               var year = parseInt(date.getFullYear());
               var year_range = instance.widget.settings.year_range;
               var parts = year_range.split(':');
@@ -166,14 +165,51 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
                 options[option] = '' + option;
               }
               // Parse the year from the item's value.
-              var date = new Date(items[delta].value);
-              var year = parseInt(date.getFullYear());
+              var item_date = new Date(items[delta].value);
+              var year = parseInt(item_date.getFullYear());
               // Build and theme the select list.
               var select = {
-                type:'date_select',
-                value:year,
-                'attributes':attributes,
-                'options':options
+                title: 'Year',
+                type: 'date_select',
+                value: year,
+                attributes: attributes,
+                options: options
+              };
+              items[delta].children.push(select);
+              break;
+            case 'month':
+              // Determine the current month.          
+              var month = parseInt(date.getMonth()) + 1;
+              // Build the options.
+              var options = {};
+              for (var i = 1; i <= 12; i++) {
+                options[i] = '' + i;
+              }
+              // Build and theme the select list.
+              var select = {
+                title: 'Month',
+                type: 'date_select',
+                value: month,
+                attributes: attributes,
+                options: options
+              };
+              items[delta].children.push(select);
+              break;
+            case 'day':
+              // Determine the current month.          
+              var day = parseInt(date.getDate());
+              // Build the options.
+              var options = {};
+              for (var i = 1; i <= 31; i++) {
+                options[i] = '' + i;
+              }
+              // Build and theme the select list.
+              var select = {
+                title: 'Day',
+                type: 'date_select',
+                value: day,
+                attributes: attributes,
+                options: options
               };
               items[delta].children.push(select);
               break;
@@ -193,10 +229,28 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 function date_assemble_form_state_into_field(entity_type, bundle,
   form_state_value, field, instance, langcode, delta) {
   try {
-    var date = new Date(form_state_value); 
-    return {
-      year: date.getFullYear()
-    };
+    var date = new Date(form_state_value);
+    var result = {};
+    $.each(field.settings.granularity, function(grain, value){
+        if (value) {
+          switch (grain) {
+          case 'year':
+            result.year = date.getFullYear();
+            break;
+          case 'month':
+            result.month = parseInt(date.getMonth()) + 1;
+            //result.month = '' + (parseInt(date.getMonth()) + 1);
+            //if (result.month.length == 1) { result.month = '0' + result.month; }
+            break;
+          case 'day':
+            result.day = parseInt(date.getDate());
+            //result.day = '' + date.getDate();
+            //if (result.day.length == 1) { result.day = '0' + result.day; }
+            break;
+          }
+        }
+    });
+    return result;
   }
   catch (error) {
     console.log('date_assemble_form_state_into_field - ' + error);
