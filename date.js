@@ -261,6 +261,10 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 function date_assemble_form_state_into_field(entity_type, bundle,
   form_state_value, field, instance, langcode, delta) {
   try {
+    // On iOS we must place a 'T' on the date.
+    if (device.platform == 'iOS') {
+      form_state_value = form_state_value.replace(' ', 'T');
+    }
     var date = new Date(form_state_value);
     var result = {};
     $.each(field.settings.granularity, function(grain, value){
