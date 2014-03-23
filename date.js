@@ -111,6 +111,7 @@ function date_select_onchange(input, id, grain) {
  */
 function date_field_widget_form(form, form_state, field, instance, langcode, items, delta, element) {
   try {
+
     // Convert the item into a hidden field that will have its value populated
     // dynamically be the widget.
     items[delta].type = 'hidden';
@@ -161,21 +162,39 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
           switch (grain) {
             case 'year':
               // Determine the current year and the range of year(s) to provide
-              // as options.          
+              // as options. The range can either be relative, absolute or both,
+              // e.g. -3:+3, 2000:2010, 2000:+3
               var year = parseInt(date.getFullYear());
               var year_range = instance.widget.settings.year_range;
               var parts = year_range.split(':');
-              var low = parseInt(parts[0]);
-              var high = parseInt(parts[1].replace('+', ''));
-              if (!high) {
-                var smoke_one = true;
-                high = year;
+              // Determine the low end year integer value.
+              var low = parts[0];
+              var low_absolute = true;
+              if (low.indexOf('-') != -1 || low.indexOf('+') != -1) { low_absolute = false; }
+              if (!low_absolute) {
+                if (low.indexOf('+') != -1) {
+                  low = low.replace('+', '');
+                }
+                low = parseInt(low) + year;
               }
+              else { low = parseInt(low); }
+              if (!low) { low = year; }
+              // Determine the high end year integer value.
+              var high = parts[1];
+              var high_absolute = true;
+              if (high.indexOf('-') != -1 || high.indexOf('+') != -1) { high_absolute = false; }
+              if (!high_absolute) {
+                if (high.indexOf('+') != -1) {
+                  high = high.replace('+', '');
+                }
+                high = parseInt(high) + year;
+              }
+              else { high = parseInt(high); }
+              if (!high) { high = year; }
               // Build the options.
               var options = {};
               for (var i = low; i <= high; i++) {
-                var option = i;
-                options[option] = '' + option;
+                options[i] = i;
               }
               // Parse the year from the item's value.
               var item_date = new Date(items[delta].value);
