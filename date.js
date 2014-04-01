@@ -259,7 +259,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
  * Implements hook_assemble_form_state_into_field().
  */
 function date_assemble_form_state_into_field(entity_type, bundle,
-  form_state_value, field, instance, langcode, delta) {
+  form_state_value, field, instance, langcode, delta, field_key) {
   try {
     var date = new Date(form_state_value);
     var result = {};
