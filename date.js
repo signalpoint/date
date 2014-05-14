@@ -107,6 +107,58 @@ function date_select_onchange(input, id, grain) {
 }
 
 /**
+ * Implements hook_field_formatter_view().
+ */
+function date_field_formatter_view(entity_type, entity, field, instance, langcode, items, display) {
+  try {
+    /*dpm(field);
+    dpm(instance);
+    dpm(display);*/
+    var element = {};
+    // What type of display are we working with?
+    // Manage Display - Format
+    //   date_default = Date and time
+    //   format_interval = Time ago
+    var type = display.type;
+    if (type == 'date_default') {
+      // Since we're unable to locate the format to use within the field or the
+      // instance, we'll just use the first format type in the collection.
+      var format_type = drupalgap.date_formats[display.settings.format_type];
+      $.each(format_type, function(index, object) {
+          format_type = object;
+          return false;
+      });
+      $.each(items, function(delta, item) {
+          var d = new Date(item.value);
+          element[delta] = {
+            markup: date(format_type.format, d.getTime())
+          };
+      });
+    }
+    else if (type == 'format_interval') {
+      var interval = display.settings.interval;
+      var interval_display = display.settings.interval_display;
+      $.each(items, function(delta, item) {
+          var d = new Date(item.value);
+          if (interval_display == 'time ago' || interval_display == 'raw time ago') {
+            var markup = drupalgap_format_interval(d.getTime()/1000, interval);
+            if (interval_display == 'time ago') { markup += ' ago'; }
+            element[delta] = { markup: markup + '<br />' + d.toString() };
+          }
+          else {
+            console.log('WARNING: date_field_formatter_view - unsupported interval_display (' + interval_display + ')');
+          }
+      });
+    }
+    else {
+      console.log('WARNING: date_field_formatter_view - unsupported type (' + type + ')');
+    }
+    return element;
+  }
+  catch (error) { console.log('date_field_formatter_view - ' + error); }
+}
+
+/**
  * Implements hook_field_widget_form().
  */
 function date_field_widget_form(form, form_state, field, instance, langcode, items, delta, element) {
