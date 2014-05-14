@@ -261,11 +261,33 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 function date_assemble_form_state_into_field(entity_type, bundle,
   form_state_value, field, instance, langcode, delta, field_key) {
   try {
-    // On iOS we must place a 'T' on the date.
-    if (device.platform == 'iOS') {
+    
+    // field.type
+    //   date = Date (ISO format)
+    //   datetime = Date
+    
+    
+    // For ISO formats, or on iOS devices we must place a 'T' on the date.
+    if (field.type == 'date' || device.platform == 'iOS') {
       form_state_value = form_state_value.replace(' ', 'T');
     }
     var date = new Date(form_state_value);
+    // ISO format just returns the date as a string, when the widget is a text
+    // field, and the format must match the "Date entry options" under the
+    // "More Settings and Values" under the field's settings.
+    // @UPDATE - This isn't try for ISO dates with a select list widget.
+    if (field.type == 'date' && instance.widget.type == 'date_text') {
+      var input_format = instance.widget.settings.input_format;
+      if (instance.widget.settings.custom_format && !empty(instance.widget.settings.custom_format)) {
+        input_format = instance.widget.settings.custom_format;
+      }
+      //return form_state_value;
+      alert(input_format);
+      var date_value = date(input_format, date.getTime()/1000);
+      alert(date_value);
+      return { date: date_value };
+    }
+    // The Date (datetime) format returns parts of the date.
     var result = {};
     $.each(field.settings.granularity, function(grain, value){
         if (value) {
@@ -275,13 +297,9 @@ function date_assemble_form_state_into_field(entity_type, bundle,
             break;
           case 'month':
             result.month = parseInt(date.getMonth()) + 1;
-            //result.month = '' + (parseInt(date.getMonth()) + 1);
-            //if (result.month.length == 1) { result.month = '0' + result.month; }
             break;
           case 'day':
             result.day = parseInt(date.getDate());
-            //result.day = '' + date.getDate();
-            //if (result.day.length == 1) { result.day = '0' + result.day; }
             break;
           }
         }
