@@ -138,12 +138,16 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
     else if (type == 'format_interval') {
       var interval = display.settings.interval;
       var interval_display = display.settings.interval_display;
+      var now = new Date();
       $.each(items, function(delta, item) {
           var d = new Date(item.value);
           if (interval_display == 'time ago' || interval_display == 'raw time ago') {
-            var markup = drupalgap_format_interval(d.getTime()/1000, interval);
+            var markup = drupalgap_format_interval(
+              (now.getTime() - d.getTime()) / 1000,
+              interval
+            );
             if (interval_display == 'time ago') { markup += ' ago'; }
-            element[delta] = { markup: markup + '<br />' + d.toString() };
+            element[delta] = { markup: markup };
           }
           else {
             console.log('WARNING: date_field_formatter_view - unsupported interval_display (' + interval_display + ')');
