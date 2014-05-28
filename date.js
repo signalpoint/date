@@ -169,7 +169,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
   try {
 
     // Convert the item into a hidden field that will have its value populated
-    // dynamically be the widget.
+    // dynamically by the widget.
     items[delta].type = 'hidden';
     
     // Determine if a value is set for this item.
@@ -203,6 +203,10 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     
     // Grab the current date.
     var date = new Date();
+    
+    // Grab the item date, if it is set.
+    var item_date = null;
+    if (value_set) { item_date = new Date(items[delta].value); }
     
     // For each grain of the granulatiry, add a child for each.
     $.each(field.settings.granularity, function(grain, value){
@@ -252,9 +256,8 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               for (var i = low; i <= high; i++) {
                 options[i] = i;
               }
-              // Parse the year from the item's value.
-              var item_date = new Date(items[delta].value);
-              var year = parseInt(item_date.getFullYear());
+              // Parse the year from the item's value, if it is set.
+              if (value_set) { year = parseInt(item_date.getFullYear()); }
               // Build and theme the select list.
               var select = {
                 title: 'Year',
@@ -273,6 +276,8 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               for (var i = 1; i <= 12; i++) {
                 options[i] = '' + i;
               }
+              // Parse the month from the item's value, if it is set.
+              if (value_set) { month = parseInt(item_date.getMonth()) + 1; }
               // Build and theme the select list.
               var select = {
                 title: 'Month',
@@ -291,6 +296,8 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               for (var i = 1; i <= 31; i++) {
                 options[i] = '' + i;
               }
+              // Parse the day from the item's value, if it is set.
+              if (value_set) { day = parseInt(item_date.getDate()); }
               // Build and theme the select list.
               var select = {
                 title: 'Day',
