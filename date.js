@@ -111,9 +111,18 @@ function date_select_onchange(input, id, grain) {
  */
 function date_field_formatter_view(entity_type, entity, field, instance, langcode, items, display) {
   try {
-    /*dpm(field);
+    /*dpm('field');
+    dpm(field);
+    dpm('instance');
     dpm(instance);
-    dpm(display);*/
+    dpm('display');
+    dpm(display);
+    dpm('items');
+    dpm(items);
+    dpm('date_formats');
+    dpm(drupalgap.date_formats);
+    dpm('date_types');
+    dpm(drupalgap.date_types);*/
     var element = {};
     // What type of display are we working with?
     // Manage Display - Format
@@ -121,17 +130,27 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
     //   format_interval = Time ago
     var type = display.type;
     if (type == 'date_default') {
-      // Since we're unable to locate the format to use within the field or the
-      // instance, we'll just use the first format type in the collection.
-      var format_type = drupalgap.date_formats[display.settings.format_type];
-      $.each(format_type, function(index, object) {
-          format_type = object;
-          return false;
-      });
+      var format = null;
+      if (drupalgap.date_formats[display.settings.format_type]) {
+        // Since we're unable to locate the format to use within the field or the
+        // instance, we'll just use the first format type in the collection.
+        var format_type = drupalgap.date_formats[display.settings.format_type];
+        $.each(format_type, function(index, object) {
+            format_type = object;
+            return false;
+        });
+        format = format_type.format;
+      }
+      else {
+        // This is (probably) a custom date format, grab the format that
+        // the drupalgap.module has bundled within the date_types.
+        format = drupalgap.date_types[display.settings.format_type].format;
+      }
+      // Now iterate over the items and render them using the format.
       $.each(items, function(delta, item) {
           var d = new Date(item.value);
           element[delta] = {
-            markup: date(format_type.format, d.getTime())
+            markup: date(format, d.getTime())
           };
       });
     }
