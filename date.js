@@ -34,8 +34,12 @@ function theme_datetime(variables) {
  */
 function theme_date_select(variables) {
   try {
+
     var html = theme('select', variables);
     return html;
+
+    // DEPRECATED...
+
     // For each grain of the granulatiry, add a select list for each.
     $.each(variables.field_info_field.settings.granularity, function(grain, value){
         if (value) {
@@ -86,10 +90,41 @@ function theme_date_select(variables) {
  */
 function date_select_onchange(input, id, grain) {
   try {
-    var date = null;
+    
+    // Are we setting a "to date"?
+    var todate = $(input).attr('id').indexOf('value2') != -1 ? true : false;
+    dpm('todate: ' + todate);
+    
+    // Grab the current value (which may include both the "from" and "to" dates
+    // separated by a pipe '|')
     var current_val = $('#' + id).val();
+    dpm('current_val: ' + current_val);
+
+    // Is there a "to date" already set on the current value?
+    var todate_already_set = current_val.indexOf('|') != -1 ? true : false;
+    dpm('todate_already_set: ' + todate_already_set);
+    
+    // Perpare the value part(s).
+    var parts = [];
+    if (todate_already_set) { parts = current_val.split('|'); }
+    else { parts.push(current_val); }
+    dpm('parts');
+    console.log(parts);
+    
+    // Get the date for the current value, or just default to now.
+    var date = null;
     if (!current_val) { date = new Date(); }
-    else { date = new Date(current_val); }
+    else {
+      //date = new Date(current_val);
+      if (!todate) { date = new Date(parts[0]); }
+      else {
+        if (todate_already_set) { date = new Date(parts[1]); }
+        else { date = new Date(); }
+      }
+    }
+    dpm('current date');
+    console.log(date);
+
     switch (grain) {
       case 'year':
         date.setYear($(input).val());
@@ -100,8 +135,22 @@ function date_select_onchange(input, id, grain) {
       case 'day':
         date.setDate($(input).val());
         break;
+      case 'hour':
+        date.setDate($(input).val());
+        break;
+      case 'minute':
+        date.setDate($(input).val());
+        break;
     }
-    $('#' + id).val(date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(date)));
+    dpm('new date');
+    console.log(date);
+    var _value = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(date));
+    if (!todate) { parts[0] = _value; }
+    else { parts[1] = _value;  }
+    dpm('parts');
+    console.log(parts);
+    dpm('done: ' + parts.join('|'));
+    $('#' + id).val(parts.join('|'));
   }
   catch (error) { drupalgap_error(error); }
 }
@@ -186,10 +235,30 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
  */
 function date_field_widget_form(form, form_state, field, instance, langcode, items, delta, element) {
   try {
+    
+    dpm('form');
+    console.log(form);
+    //dpm('form_state');
+    //console.log(form_state);
+    dpm('field');
+    console.log(field);
+    dpm('instance');
+    console.log(instance);
+    //dpm('langcode');
+    //console.log(langcode);
+    dpm('items');
+    console.log(items);
+    //dpm('delta');
+    //console.log(delta);
+    dpm('element');
+    console.log(element);
 
     // Convert the item into a hidden field that will have its value populated
     // dynamically by the widget.
     items[delta].type = 'hidden';
+    
+    // Determine if the "to date" is disabled, optional or required.
+    var todate = field.settings.todate; // '', 'optional', 'required'
     
     // Determine if a value is set for this item.
     var value_set = true;
@@ -227,18 +296,28 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     var item_date = null;
     if (value_set) { item_date = new Date(items[delta].value); }
     
+    // Depending on if we are collecting an end date or not, build a widget for
+    // each date value.
+    var values = ['value'];
+    if (!empty(todate)) { values.push('value2'); }
+    $.each(values, function(_index, _value) {
+    
     // For each grain of the granulatiry, add a child for each.
     $.each(field.settings.granularity, function(grain, value){
         if (value) {
           // Build a unique html element id for this select list. Set up an
           // onclick handler and send it the id of the hidden input that will
           // hold the date value.
-          var id = items[delta].id + '-' + grain;
+          var id = items[delta].id;
+          if (_value == 'value2') { id += '2'; } // "To date"
+          id += '-' + grain;
           var attributes = {
             'id':id,
             'onchange':"date_select_onchange(this, '" + items[delta].id + "', '" + grain + "')"
           };
           switch (grain) {
+
+            // YEAR
             case 'year':
               // Determine the current year and the range of year(s) to provide
               // as options. The range can either be relative, absolute or both,
@@ -287,6 +366,8 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               };
               items[delta].children.push(select);
               break;
+
+            // MONTH
             case 'month':
               // Determine the current month.          
               var month = parseInt(date.getMonth()) + 1;
@@ -307,6 +388,8 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               };
               items[delta].children.push(select);
               break;
+
+            // DAY
             case 'day':
               // Determine the current month.          
               var day = parseInt(date.getDate());
@@ -327,12 +410,75 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               };
               items[delta].children.push(select);
               break;
+
+            // HOUR
+            case 'hour':
+
+              // Determine the current hour.
+              var hour = parseInt(date.getHours());
+
+              // Build the options.
+              var options = {};
+              for (var i = 0; i <= 23; i++) {
+                options[i] = '' + i;
+              }
+
+              // Parse the hour from the item's value, if it is set.
+              if (value_set) { hour = parseInt(item_date.getHours()); }
+
+              // Build and theme the select list.
+              var select = {
+                title: 'Hour',
+                type: 'date_select',
+                value: hour,
+                attributes: attributes,
+                options: options
+              };
+              items[delta].children.push(select);
+
+              break;
+
+            // MINUTE
+            case 'minute':
+              
+              // @START HERE!
+              // @TODO you need to set 15 minute intrevals here!!!
+
+              // Determine the current hour.
+              var minute = parseInt(date.getMinutes());
+
+              // Build the options.
+              var options = {};
+              for (var i = 0; i <= 59; i++) {
+                options[i] = '' + i;
+              }
+
+              // Parse the hour from the item's value, if it is set.
+              if (value_set) { minute = parseInt(item_date.getMinutes()); }
+
+              // Build and theme the select list.
+              var select = {
+                title: 'Minute',
+                type: 'date_select',
+                value: minute,
+                attributes: attributes,
+                options: options
+              };
+              items[delta].children.push(select);
+
+              break;
+
             default:
               console.log('WARNING: date_field_widget_form() - unsupported grain! (' + grain + ')');
               break;
           }
         }
     });
+        
+        
+    });
+    
+    
   }
   catch (error) { drupalgap_error(error); }
 }
@@ -343,31 +489,70 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 function date_assemble_form_state_into_field(entity_type, bundle,
   form_state_value, field, instance, langcode, delta, field_key) {
   try {
+    
+    field_key.use_delta = false;
+    //field_key.use_wrapper = false;
+
+    // Grab our "to date" setting for the field.
+    var todate = field.settings.todate;
+
     // On iOS we must place a 'T' on the date.
-    if (device.platform == 'iOS') {
+    if (drupalgap.settings.mode == 'phonegap' && device.platform == 'iOS') {
       form_state_value = form_state_value.replace(' ', 'T');
     }
-    var date = new Date(form_state_value);
     var result = {};
-    $.each(field.settings.granularity, function(grain, value){
+    
+    var values = ['value'];
+    if (!empty(todate)) { values.push('value2'); }
+    $.each(values, function(_index, _value) {
+        
+        result[_value] = {};
+        
+        // Is there a "to date" already set on the current value?
+        var todate_already_set = form_state_value.indexOf('|') != -1 ? true : false;
+        dpm('todate_already_set: ' + todate_already_set);
+        
+        // Perpare the value part(s).
+        var parts = [];
+        if (todate_already_set) { parts = form_state_value.split('|'); }
+        else { parts.push(form_state_value); }
+        dpm('parts');
+        console.log(parts);
+        
+    $.each(field.settings.granularity, function(grain, value) {
+        
+        var date = null;
+        if (_value == 'value') { date = new Date(parts[0]); }
+        else if (_value == 'value2') {  date = new Date(parts[1]); }
+        
         if (value) {
           switch (grain) {
           case 'year':
-            result.year = date.getFullYear();
+            result[_value].year = date.getFullYear();
             break;
           case 'month':
-            result.month = parseInt(date.getMonth()) + 1;
+            result[_value].month = parseInt(date.getMonth()) + 1;
             //result.month = '' + (parseInt(date.getMonth()) + 1);
             //if (result.month.length == 1) { result.month = '0' + result.month; }
             break;
           case 'day':
-            result.day = parseInt(date.getDate());
+            result[_value].day = parseInt(date.getDate());
             //result.day = '' + date.getDate();
             //if (result.day.length == 1) { result.day = '0' + result.day; }
             break;
+          case 'hour':
+            result[_value].hour = parseInt(date.getHours());
+            break;
+          case 'minute':
+            result[_value].minute = '' + parseInt(date.getMinutes());
+            if (result[_value].minute.length == 1) { result[_value].minute = '0' + result[_value].minute; }
+            break;
           }
         }
+    });        
+
     });
+
     return result;
   }
   catch (error) {
