@@ -114,18 +114,18 @@ function date_select_onchange(input, id, grain) {
  */
 function date_field_formatter_view(entity_type, entity, field, instance, langcode, items, display) {
   try {
-    /*dpm('field');
-    dpm(field);
+    dpm('field');
+    console.log(field);
     dpm('instance');
-    dpm(instance);
+    console.log(instance);
     dpm('display');
-    dpm(display);
+    console.log(display);
     dpm('items');
-    dpm(items);
+    console.log(items);
     dpm('date_formats');
-    dpm(drupalgap.date_formats);
+    console.log(drupalgap.date_formats);
     dpm('date_types');
-    dpm(drupalgap.date_types);*/
+    console.log(drupalgap.date_types);
     var element = {};
     // What type of display are we working with?
     // Manage Display - Format
@@ -151,10 +151,16 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
       }
       // Now iterate over the items and render them using the format.
       $.each(items, function(delta, item) {
+          var value2_present = typeof item.value2 !== 'undefined' ? true: false;
+          var label = value2_present ? 'From: ' : '';
           var d = new Date(item.value);
           element[delta] = {
-            markup: date(format, d.getTime())
+            markup: '<div class="value">' + label + date(format, d.getTime()) + '</div>'
           };
+          if (value2_present) {
+            var d2 = new Date(item.value2);
+            element[delta].markup += '<div class="value2">To: ' + date(format, d2.getTime()) + '</div>';
+          }
       });
     }
     else if (type == 'format_interval') {
@@ -223,10 +229,11 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     // Determine if values have been set for this item.
     var value_set = true;
     var value2_set = true;
+    dpm(JSON.stringify(items[delta]));
     if (typeof items[delta].value === 'undefined' || items[delta].value == '') {
       value_set = false;
     }
-    if (typeof items[delta].value2_set === 'undefined' || items[delta].value2_set == '') {
+    if (typeof items[delta].item.value2 === 'undefined' || items[delta].item.value2 == '') {
       value2_set = false;
     }
     dpm('value_set = ' + value_set);
@@ -264,8 +271,10 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
           var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
           items[delta].value2 = now;
           items[delta].default_value2 = now;
-          items[delta].value += '|' + items[delta].value2;
-          items[delta].default_value += '|' + items[delta].default_value2;
+          if (!empty(items[delta].value)) { items[delta].value += '|'; }
+          items[delta].value += items[delta].value2;
+          if (!empty(items[delta].default_value)) { items[delta].default_value += '|'; }
+          items[delta].default_value += items[delta].default_value2;
           break;
         default:
           console.log('WARNING: date_field_widget_form() - unsupported default value 2: ' + items[delta].default_value2);
@@ -291,8 +300,14 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
         
     // Grab the item date, if it is set.
     var item_date = null;
-    if (value_set && _value == 'value') { item_date = new Date(items[delta].value); }
-    if (value2_set && _value == 'value2') { item_date = new Date(items[delta].value2); }
+    if (value_set && _value == 'value') {
+      if (items[delta].value.indexOf('|') != -1) {
+        var parts = items[delta].value.split('|');
+        item_date = new Date(parts[0]);
+      }
+      else { item_date = new Date(items[delta].value); }
+    }
+    if (value2_set && _value == 'value2') { item_date = new Date(items[delta].item.value2); }
     
     // For each grain of the granulatiry, add a child for each.
     $.each(field.settings.granularity, function(grain, value){
@@ -361,14 +376,17 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
             // MONTH
             case 'month':
-              // Determine the current month.          
+              // Determine the current month.
+              dpm('looking for month in ' + date.toString());
               var month = parseInt(date.getMonth()) + 1;
+              dpm('got it from the date');
               // Build the options.
               var options = {};
               for (var i = 1; i <= 12; i++) {
                 options[i] = '' + i;
               }
               // Parse the month from the item's value, if it is set.
+              dpm('looking for month 2 in ' + item_date.toString());
               if (value_set) { month = parseInt(item_date.getMonth()) + 1; }
               // Build and theme the select list.
               var select = {
