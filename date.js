@@ -33,53 +33,7 @@ function theme_datetime(variables) {
  *
  */
 function theme_date_select(variables) {
-  try {
-
-    var html = theme('select', variables);
-    return html;
-
-    // DEPRECATED...
-
-    // For each grain of the granulatiry, add a select list for each.
-    $.each(variables.field_info_field.settings.granularity, function(grain, value){
-        if (value) {
-          // Build a unique html element id for this select list. Set up an
-          // onclick handler and send it the id of the hidden input that will
-          // hold the date value.
-          var id = variables.attributes.id + '-' + grain;
-          var attributes = {
-            'id':id,
-            'onchange':"date_select_onchange(this, '" + variables.attributes.id + "')"
-          };
-          switch (grain) {
-            case 'year':
-              // Determine the current year and the range of year(s) to provide
-              // as options.
-              var date = new Date();
-              var year = parseInt(date.getFullYear());
-              var year_range = variables.field_info_instance.widget.settings.year_range;
-              var parts = year_range.split(':');
-              var low = parseInt(parts[0]);
-              var high = parseInt(parts[1].replace('+', ''));
-              // Build the options.
-              var options = {};
-              for (var i = low; i <= high; i++) {
-                var option = year + i;
-                options[option] = '' + option;
-              }
-              // Build and theme the select list.
-              var select = {'attributes':attributes, 'options':options};
-              
-              html += theme('select', select);
-              break;
-            default:
-              console.log('WARNING: theme_date_select() - unsupported grain! (' + grain + ')');
-              break;
-          }
-        }
-    });
-    return html;  
-  }
+  try { return theme('select', variables); }
   catch (error) { drupalgap_error(error); }
 }
 
@@ -136,10 +90,10 @@ function date_select_onchange(input, id, grain) {
         date.setDate($(input).val());
         break;
       case 'hour':
-        date.setDate($(input).val());
+        date.setHours($(input).val());
         break;
       case 'minute':
-        date.setDate($(input).val());
+        date.setMinutes($(input).val());
         break;
     }
     dpm('new date');
@@ -260,22 +214,38 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     // Determine if the "to date" is disabled, optional or required.
     var todate = field.settings.todate; // '', 'optional', 'required'
     
-    // Determine if a value is set for this item.
+    // Grab the minute increment.
+    var increment = parseInt(instance.widget.settings.increment);
+    var d = new Date();
+    dpm();
+    d.setMinutes(_date_minute_increment_adjust(increment, d.getMinutes()));
+    
+    // Determine if values have been set for this item.
     var value_set = true;
+    var value2_set = true;
     if (typeof items[delta].value === 'undefined' || items[delta].value == '') {
       value_set = false;
     }
+    if (typeof items[delta].value2_set === 'undefined' || items[delta].value2_set == '') {
+      value2_set = false;
+    }
+    dpm('value_set = ' + value_set);
+    dpm('value2_set = ' + value2_set);
+    console.log(items[delta]);
     
     // If the value isn't set, check if a default value is available.
     if (!value_set && items[delta].default_value == '' && instance.settings.default_value != '') {
       items[delta].default_value = instance.settings.default_value;
+    }
+    if (!value2_set) {
+      items[delta].default_value2 = instance.settings.default_value2;
     }
     
     // If the value isn't set and we have a default value, let's set it.
     if (!value_set && items[delta].default_value != '') {
       switch (items[delta].default_value) {
         case 'now':
-          var now = date_yyyy_mm_dd_hh_mm_ss();
+          var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
           items[delta].value = now;
           items[delta].default_value = now;
           break;
@@ -288,19 +258,41 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
           break;
       }
     }
+    if (!value2_set && items[delta].default_value2 != '') {
+      switch (items[delta].default_value2) {
+        case 'same':
+          var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
+          items[delta].value2 = now;
+          items[delta].default_value2 = now;
+          items[delta].value += '|' + items[delta].value2;
+          items[delta].default_value += '|' + items[delta].default_value2;
+          break;
+        default:
+          console.log('WARNING: date_field_widget_form() - unsupported default value 2: ' + items[delta].default_value2);
+          break;
+      }
+    }
     
     // Grab the current date.
     var date = new Date();
     
     // Grab the item date, if it is set.
-    var item_date = null;
-    if (value_set) { item_date = new Date(items[delta].value); }
+    //var item_date = null;
+    //var item_date2 = null;
+    //if (value_set) { item_date = new Date(items[delta].value); }
+    //if (value2_set) { item_date2 = new Date(items[delta].value2); }
     
     // Depending on if we are collecting an end date or not, build a widget for
     // each date value.
     var values = ['value'];
     if (!empty(todate)) { values.push('value2'); }
+    console.log(values);
     $.each(values, function(_index, _value) {
+        
+    // Grab the item date, if it is set.
+    var item_date = null;
+    if (value_set && _value == 'value') { item_date = new Date(items[delta].value); }
+    if (value2_set && _value == 'value2') { item_date = new Date(items[delta].value2); }
     
     // For each grain of the granulatiry, add a child for each.
     $.each(field.settings.granularity, function(grain, value){
@@ -424,7 +416,11 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               }
 
               // Parse the hour from the item's value, if it is set.
-              if (value_set) { hour = parseInt(item_date.getHours()); }
+              if (value_set) {
+                dpm('we have got a value: ' + value_set);
+                hour = parseInt(item_date.getHours());
+                dpm('hour = ' + hour);
+              }
 
               // Build and theme the select list.
               var select = {
@@ -440,21 +436,25 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
             // MINUTE
             case 'minute':
-              
-              // @START HERE!
-              // @TODO you need to set 15 minute intrevals here!!!
 
-              // Determine the current hour.
+              // Determine the current minute.
               var minute = parseInt(date.getMinutes());
 
               // Build the options.
               var options = {};
-              for (var i = 0; i <= 59; i++) {
-                options[i] = '' + i;
+              for (var i = 0; i <= 59; i += increment) {
+                var text = '' + i;
+                if (text.length == 1) { text = '0' + text; }
+                options[i] = text;
               }
 
-              // Parse the hour from the item's value, if it is set.
-              if (value_set) { minute = parseInt(item_date.getMinutes()); }
+              // Parse the minute from the item's value, if it is set.
+              if (value_set && _value == 'value') { minute = parseInt(item_date.getMinutes()); }
+              else if (value2_set && _value == 'value2') { minute = parseInt(item_date.getMinutes()); }
+              if (increment != 1) {
+                minute = _date_minute_increment_adjust(increment, minute);
+              }
+              dpm('minute = ' + minute);
 
               // Build and theme the select list.
               var select = {
@@ -558,5 +558,29 @@ function date_assemble_form_state_into_field(entity_type, bundle,
   catch (error) {
     console.log('date_assemble_form_state_into_field - ' + error);
   }
+}
+
+/**
+ *
+ */
+function _date_minute_increment_adjust(increment, minute) {
+  try {
+    switch (increment) {
+      case 5:
+        break;
+      case 10:
+        break;
+      case 15:
+        if (minute < 15) { minute = 0; }
+        else if (minute < 30) { minute = 15; }
+        else if (minute < 45) { minute = 30; }
+        else if (minute < 60) { minute = 45; }
+        break;
+      case 30:
+        break;
+    }
+    return minute;
+  }
+  catch (error) { console.log('_date_minute_increment_adjust - ' + error); }
 }
 
