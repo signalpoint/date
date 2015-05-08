@@ -47,23 +47,18 @@ function date_select_onchange(input, id, grain) {
     
     // Are we setting a "to date"?
     var todate = $(input).attr('id').indexOf('value2') != -1 ? true : false;
-    dpm('todate: ' + todate);
     
     // Grab the current value (which may include both the "from" and "to" dates
     // separated by a pipe '|')
     var current_val = $('#' + id).val();
-    dpm('current_val: ' + current_val);
 
     // Is there a "to date" already set on the current value?
     var todate_already_set = current_val.indexOf('|') != -1 ? true : false;
-    dpm('todate_already_set: ' + todate_already_set);
     
     // Perpare the value part(s).
     var parts = [];
     if (todate_already_set) { parts = current_val.split('|'); }
     else { parts.push(current_val); }
-    dpm('parts');
-    console.log(parts);
     
     // Get the date for the current value, or just default to now.
     var date = null;
@@ -76,8 +71,6 @@ function date_select_onchange(input, id, grain) {
         else { date = new Date(); }
       }
     }
-    dpm('current date');
-    console.log(date);
 
     switch (grain) {
       case 'year':
@@ -96,14 +89,9 @@ function date_select_onchange(input, id, grain) {
         date.setMinutes($(input).val());
         break;
     }
-    dpm('new date');
-    console.log(date);
     var _value = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(date));
     if (!todate) { parts[0] = _value; }
     else { parts[1] = _value;  }
-    dpm('parts');
-    console.log(parts);
-    dpm('done: ' + parts.join('|'));
     $('#' + id).val(parts.join('|'));
   }
   catch (error) { drupalgap_error(error); }
@@ -114,7 +102,7 @@ function date_select_onchange(input, id, grain) {
  */
 function date_field_formatter_view(entity_type, entity, field, instance, langcode, items, display) {
   try {
-    dpm('field');
+    /*dpm('field');
     console.log(field);
     dpm('instance');
     console.log(instance);
@@ -125,7 +113,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
     dpm('date_formats');
     console.log(drupalgap.date_formats);
     dpm('date_types');
-    console.log(drupalgap.date_types);
+    console.log(drupalgap.date_types);*/
     var element = {};
     // What type of display are we working with?
     // Manage Display - Format
@@ -196,7 +184,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
 function date_field_widget_form(form, form_state, field, instance, langcode, items, delta, element) {
   try {
     
-    dpm('form');
+    /*dpm('form');
     console.log(form);
     //dpm('form_state');
     //console.log(form_state);
@@ -211,7 +199,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     //dpm('delta');
     //console.log(delta);
     dpm('element');
-    console.log(element);
+    console.log(element);*/
 
     // Convert the item into a hidden field that will have its value populated
     // dynamically by the widget.
@@ -223,22 +211,17 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     // Grab the minute increment.
     var increment = parseInt(instance.widget.settings.increment);
     var d = new Date();
-    dpm();
     d.setMinutes(_date_minute_increment_adjust(increment, d.getMinutes()));
     
     // Determine if values have been set for this item.
     var value_set = true;
     var value2_set = true;
-    dpm(JSON.stringify(items[delta]));
     if (typeof items[delta].value === 'undefined' || items[delta].value == '') {
       value_set = false;
     }
     if (typeof items[delta].item.value2 === 'undefined' || items[delta].item.value2 == '') {
       value2_set = false;
     }
-    dpm('value_set = ' + value_set);
-    dpm('value2_set = ' + value2_set);
-    console.log(items[delta]);
     
     // If the value isn't set, check if a default value is available.
     if (!value_set && items[delta].default_value == '' && instance.settings.default_value != '') {
@@ -295,7 +278,6 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     // each date value.
     var values = ['value'];
     if (!empty(todate)) { values.push('value2'); }
-    console.log(values);
     $.each(values, function(_index, _value) {
         
     // Grab the item date, if it is set.
@@ -377,16 +359,13 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
             // MONTH
             case 'month':
               // Determine the current month.
-              dpm('looking for month in ' + date.toString());
               var month = parseInt(date.getMonth()) + 1;
-              dpm('got it from the date');
               // Build the options.
               var options = {};
               for (var i = 1; i <= 12; i++) {
                 options[i] = '' + i;
               }
               // Parse the month from the item's value, if it is set.
-              dpm('looking for month 2 in ' + item_date.toString());
               if (value_set) { month = parseInt(item_date.getMonth()) + 1; }
               // Build and theme the select list.
               var select = {
@@ -435,9 +414,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
               // Parse the hour from the item's value, if it is set.
               if (value_set) {
-                dpm('we have got a value: ' + value_set);
                 hour = parseInt(item_date.getHours());
-                dpm('hour = ' + hour);
               }
 
               // Build and theme the select list.
@@ -472,7 +449,6 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               if (increment != 1) {
                 minute = _date_minute_increment_adjust(increment, minute);
               }
-              dpm('minute = ' + minute);
 
               // Build and theme the select list.
               var select = {
@@ -528,14 +504,11 @@ function date_assemble_form_state_into_field(entity_type, bundle,
         
         // Is there a "to date" already set on the current value?
         var todate_already_set = form_state_value.indexOf('|') != -1 ? true : false;
-        dpm('todate_already_set: ' + todate_already_set);
         
         // Perpare the value part(s).
         var parts = [];
         if (todate_already_set) { parts = form_state_value.split('|'); }
         else { parts.push(form_state_value); }
-        dpm('parts');
-        console.log(parts);
         
     $.each(field.settings.granularity, function(grain, value) {
         
