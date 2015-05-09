@@ -219,9 +219,11 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     if (typeof items[delta].value === 'undefined' || items[delta].value == '') {
       value_set = false;
     }
-    if (typeof items[delta].item.value2 === 'undefined' || items[delta].item.value2 == '') {
-      value2_set = false;
-    }
+    if (
+      typeof items[delta].item === 'undefined' ||
+      typeof items[delta].item.value2 === 'undefined' ||
+      items[delta].item.value2 == ''
+    ) { value2_set = false; }
     
     // If the value isn't set, check if a default value is available.
     if (!value_set && items[delta].default_value == '' && instance.settings.default_value != '') {
@@ -474,7 +476,9 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     
     
   }
-  catch (error) { drupalgap_error(error); }
+  catch (error) {
+    console.log('date_field_widget_form - ' + error);
+  }
 }
 
 /**
@@ -574,4 +578,3 @@ function _date_minute_increment_adjust(increment, minute) {
   }
   catch (error) { console.log('_date_minute_increment_adjust - ' + error); }
 }
-
