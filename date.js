@@ -293,9 +293,18 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     }
     if (value2_set && _value == 'value2') { item_date = new Date(items[delta].item.value2); }
     
-    // For each grain of the granulatiry, add a child for each.
+    // For each grain of the granulatiry, add a child for each. As we build the
+    // children widgets we'll set them aside one by one that way we can present
+    // the inputs in a desirable order.
+    var _widget_year = null;
+    var _widget_month = null;
+    var _widget_day = null;
+    var _widget_hour = null;
+    var _widget_minute = null;
+    var _widget_second = null;
     $.each(field.settings.granularity, function(grain, value){
         if (value) {
+
           // Build a unique html element id for this select list. Set up an
           // onclick handler and send it the id of the hidden input that will
           // hold the date value.
@@ -348,14 +357,14 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               // Parse the year from the item's value, if it is set.
               if (value_set) { year = parseInt(item_date.getFullYear()); }
               // Build and theme the select list.
-              var select = {
+              _widget_year = {
                 title: 'Year',
                 type: 'date_select',
                 value: year,
                 attributes: attributes,
                 options: options
               };
-              items[delta].children.push(select);
+
               break;
 
             // MONTH
@@ -370,14 +379,13 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               // Parse the month from the item's value, if it is set.
               if (value_set) { month = parseInt(item_date.getMonth()) + 1; }
               // Build and theme the select list.
-              var select = {
+              _widget_month = {
                 title: 'Month',
                 type: 'date_select',
                 value: month,
                 attributes: attributes,
                 options: options
               };
-              items[delta].children.push(select);
               break;
 
             // DAY
@@ -392,14 +400,14 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               // Parse the day from the item's value, if it is set.
               if (value_set) { day = parseInt(item_date.getDate()); }
               // Build and theme the select list.
-              var select = {
+              _widget_day = {
                 title: 'Day',
                 type: 'date_select',
                 value: day,
                 attributes: attributes,
                 options: options
               };
-              items[delta].children.push(select);
+
               break;
 
             // HOUR
@@ -420,14 +428,13 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               }
 
               // Build and theme the select list.
-              var select = {
+              _widget_hour = {
                 title: 'Hour',
                 type: 'date_select',
                 value: hour,
                 attributes: attributes,
                 options: options
               };
-              items[delta].children.push(select);
 
               break;
 
@@ -453,14 +460,13 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               }
 
               // Build and theme the select list.
-              var select = {
+              _widget_minute = {
                 title: 'Minute',
                 type: 'date_select',
                 value: minute,
                 attributes: attributes,
                 options: options
               };
-              items[delta].children.push(select);
 
               break;
 
@@ -470,10 +476,18 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
           }
         }
     });
-        
+
+    // Add the children widgets in the order of ymdhis.
+    // @TODO this should listen to the field's settings in Drupal.
+    if (_widget_year) { items[delta].children.push(_widget_year); };
+    if (_widget_month) { items[delta].children.push(_widget_month); };
+    if (_widget_day) { items[delta].children.push(_widget_day); };
+    if (_widget_hour) { items[delta].children.push(_widget_hour); };
+    if (_widget_minute) { items[delta].children.push(_widget_minute); };
+    if (_widget_second) { items[delta].children.push(_widget_second); };
         
     });
-    
+
     
   }
   catch (error) {
