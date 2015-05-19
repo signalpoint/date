@@ -358,7 +358,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               if (value_set) { year = parseInt(item_date.getFullYear()); }
               // Build and theme the select list.
               _widget_year = {
-                title: 'Year',
+                prefix: theme('date_label', { title: 'Year' }),
                 type: 'date_select',
                 value: year,
                 attributes: attributes,
@@ -380,7 +380,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               if (value_set) { month = parseInt(item_date.getMonth()) + 1; }
               // Build and theme the select list.
               _widget_month = {
-                title: 'Month',
+                prefix: theme('date_label', { title: 'Month' }),
                 type: 'date_select',
                 value: month,
                 attributes: attributes,
@@ -401,7 +401,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               if (value_set) { day = parseInt(item_date.getDate()); }
               // Build and theme the select list.
               _widget_day = {
-                title: 'Day',
+                prefix: theme('date_label', { title: 'Day' }),
                 type: 'date_select',
                 value: day,
                 attributes: attributes,
@@ -429,7 +429,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
               // Build and theme the select list.
               _widget_hour = {
-                title: 'Hour',
+                prefix: theme('date_label', { title: 'Hour' }),
                 type: 'date_select',
                 value: hour,
                 attributes: attributes,
@@ -461,7 +461,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
               // Build and theme the select list.
               _widget_minute = {
-                title: 'Minute',
+                prefix: theme('date_label', { title: 'Minute' }),
                 type: 'date_select',
                 value: minute,
                 attributes: attributes,
@@ -476,19 +476,82 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
           }
         }
     });
+    
+    // Show the "from" or "to" label?
+    if (!empty(todate)) {
+      var text = _value != 'value2' ? 'From' : 'To'; 
+      items[delta].children.push({ markup: theme('header', { text: text + ': ' }) });
+    }
 
-    // Add the children widgets in the order of ymdhis.
-    // @TODO this should listen to the field's settings in Drupal.
-    if (_widget_year) { items[delta].children.push(_widget_year); };
-    if (_widget_month) { items[delta].children.push(_widget_month); };
-    if (_widget_day) { items[delta].children.push(_widget_day); };
-    if (_widget_hour) { items[delta].children.push(_widget_hour); };
-    if (_widget_minute) { items[delta].children.push(_widget_minute); };
-    if (_widget_second) { items[delta].children.push(_widget_second); };
+    // Add the children widgets in the order of "y-m-d h-i-s", and wrap them in
+    // jQM grids as necessary to help with UX...
+    
+    // YMD
+    var ymd_grid = null;
+    if (_widget_month && !_widget_day) { ymd_grid = 'ui-grid-a'; }
+    else if (_widget_month && _widget_day) { ymd_grid = 'ui-grid-b'; }
+    if (ymd_grid) {
+      items[delta].children.push({ markup: '<div class="' + ymd_grid + '">' });
+    }
+    if (_widget_year) {
+      if (ymd_grid) {
+        _widget_year.prefix = '<div class="ui-block-a">' + _widget_year.prefix;
+        _widget_year.suffix = '</div>';
+      }
+      items[delta].children.push(_widget_year);
+    };
+    if (_widget_month) {
+      if (ymd_grid) {
+        _widget_month.prefix = '<div class="ui-block-b">' + _widget_month.prefix;
+        _widget_month.suffix = '</div>';
+      }
+      items[delta].children.push(_widget_month);
+    };
+    if (_widget_day) {
+      if (ymd_grid) {
+        var _block_class = _widget_month ? 'ui-block-c' : 'ui-block-b';
+        _widget_day.prefix = '<div class="' + _block_class + '">' + _widget_day.prefix;
+        _widget_day.suffix = '</div>';
+      }
+      items[delta].children.push(_widget_day);
+    };
+    if (ymd_grid) { items[delta].children.push({ markup: '</div>' }); }
+    
+    // HIS
+    var his_grid = null;
+    if (_widget_hour) {
+      if (_widget_minute && !_widget_second) { his_grid = 'ui-grid-a'; }
+      else if (_widget_minute && _widget_second) { his_grid = 'ui-grid-b'; }
+    }
+    else {
+      if (_widget_minute && _widget_second) { his_grid = 'ui-grid-b'; }
+    }
+    if (his_grid) {
+      items[delta].children.push({ markup: '<div class="' + his_grid + '">' });
+    }
+    if (_widget_hour) {
+      if (his_grid) {
+        _widget_hour.prefix = '<div class="ui-block-a">' + _widget_hour.prefix;
+        _widget_hour.suffix = '</div>';
+      }
+      items[delta].children.push(_widget_hour);
+    };
+    if (_widget_minute) {
+      if (his_grid) {
+        var _block_class = 'ui-block-a';
+        if (_widget_hour) { _block_class = 'ui-block-b'; }
+        _widget_minute.prefix = '<div class="' + _block_class + '">' + _widget_minute.prefix;
+        _widget_minute.suffix = '</div>';
+      }
+      items[delta].children.push(_widget_minute);
+    };
+    if (_widget_second) {
+      items[delta].children.push(_widget_second);
+    };
+    if (ymd_grid) { items[delta].children.push({ markup: '</div>' }); }
         
     });
 
-    
   }
   catch (error) {
     console.log('date_field_widget_form - ' + error);
@@ -592,3 +655,16 @@ function _date_minute_increment_adjust(increment, minute) {
   }
   catch (error) { console.log('_date_minute_increment_adjust - ' + error); }
 }
+
+/**
+ *
+ */
+function theme_date_label(variables) {
+  try {
+    return '<div ' + drupalgap_attributes(variables.attributes) + '><strong>' +
+      variables.title +
+    '</strong></div>';
+  }
+  catch (error) { console.log('theme_date_label - ' + error); }
+}
+
