@@ -64,6 +64,16 @@ function date_select_onchange(input, id, grain) {
     var date = null;
     if (!current_val) { date = new Date(); }
     else {
+      
+      //Fixes iOS bug spaces must be replaced with T's
+      if (typeof device !== 'undefined' && device.platform == 'iOS') {
+        
+        if (!todate) { parts[0] = parts[0].replace(' ', 'T'); }
+        else {
+          if (todate_already_set) { parts[1] = parts[1].replace(' ', 'T'); }
+        }
+      }
+
       //date = new Date(current_val);
       if (!todate) { date = new Date(parts[0]); }
       else {
@@ -572,8 +582,8 @@ function date_assemble_form_state_into_field(entity_type, bundle,
     var todate = field.settings.todate;
 
     // On iOS we must place a 'T' on the date.
-    if (drupalgap.settings.mode == 'phonegap' && device.platform == 'iOS') {
-      form_state_value = form_state_value.replace(' ', 'T');
+    if (typeof device !== 'undefined' && device.platform == 'iOS') {
+      form_state_value = form_state_value.replace(/ /g, 'T');
     }
     var result = {};
     
