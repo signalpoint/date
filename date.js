@@ -582,7 +582,7 @@ function date_assemble_form_state_into_field(entity_type, bundle,
     var todate = field.settings.todate;
 
     // On iOS we must place a 'T' on the date.
-    if (drupalgap.settings.mode == 'undefined' && device.platform == 'iOS') {
+    if (typeof device !== 'undefined' && device.platform == 'iOS') {
       form_state_value = form_state_value.replace(/ /g, 'T');
     }
     var result = {};
