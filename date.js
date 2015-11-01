@@ -38,6 +38,21 @@ function theme_date_select(variables) {
 }
 
 /**
+ *
+ * @param value
+ * @returns {Date}
+ */
+function date_prepare(value) {
+  try {
+    // @see http://stackoverflow.com/a/16664730/763010
+    return new Date(Date.parse(value.replace(/-/g,'/')));
+  }
+  catch (error) {
+    console.log('date_prepare() - ' + error);
+  }
+}
+
+/**
  * Handles the onchange event for date select lists. It is given a reference
  * to the select list, the id of the hidden date field, and the grain of the
  * input.
@@ -67,7 +82,7 @@ function date_select_onchange(input, id, grain) {
       
       //Fixes iOS bug spaces must be replaced with T's
       if (typeof device !== 'undefined' && device.platform == 'iOS') {
-        
+
         if (!todate) { parts[0] = parts[0].replace(' ', 'T'); }
         else {
           if (todate_already_set) { parts[1] = parts[1].replace(' ', 'T'); }
@@ -151,12 +166,12 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
       $.each(items, function(delta, item) {
           var value2_present = typeof item.value2 !== 'undefined' ? true: false;
           var label = value2_present ? 'From: ' : '';
-          var d = new Date(item.value);
+          var d = date_prepare(item.value);
           element[delta] = {
             markup: '<div class="value">' + label + date(format, d.getTime()) + '</div>'
           };
           if (value2_present) {
-            var d2 = new Date(item.value2);
+            var d2 = date_prepare(item.value2);
             element[delta].markup += '<div class="value2">To: ' + date(format, d2.getTime()) + '</div>';
           }
       });
@@ -166,7 +181,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
       var interval_display = display.settings.interval_display;
       var now = new Date();
       $.each(items, function(delta, item) {
-          var d = new Date(item.value);
+          var d = date_prepare(item.value);
           if (interval_display == 'time ago' || interval_display == 'raw time ago') {
             var markup = drupalgap_format_interval(
               (now.getTime() - d.getTime()) / 1000,
