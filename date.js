@@ -165,7 +165,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
       // Now iterate over the items and render them using the format.
       $.each(items, function(delta, item) {
           var value2_present = typeof item.value2 !== 'undefined' ? true: false;
-          var label = value2_present ? 'From: ' : '';
+          var label = value2_present ? ('From')+': ' : '';
           var d = date_prepare(item.value);
           element[delta] = {
             markup: '<div class="value">' + label + date(format, d.getTime()) + '</div>'
@@ -187,7 +187,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
               (now.getTime() - d.getTime()) / 1000,
               interval
             );
-            if (interval_display == 'time ago') { markup += ' ago'; }
+            if (interval_display == 'time ago') { markup += t(' ago'); }
             element[delta] = { markup: markup };
           }
           else {
@@ -283,8 +283,8 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
           items[delta].default_value2 = now;
           if (!empty(items[delta].value)) { items[delta].value += '|'; }
           items[delta].value += items[delta].value2;
-          if (!empty(items[delta].default_value)) { items[delta].default_value += '|'; }
-          items[delta].default_value += items[delta].default_value2;
+         /* if (!empty(items[delta].default_value)) { items[delta].default_value += '|'; }
+          items[delta].default_value += items[delta].default_value2;*/
           break;
         default:
           console.log('WARNING: date_field_widget_form() - unsupported default value 2: ' + items[delta].default_value2);
@@ -292,6 +292,11 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
       }
     }
     
+     else if (value2_set) {
+	      if (!empty(items[delta].value)) { items[delta].value += '|'; }
+          items[delta].value += items[delta].item.value2;
+          items[delta].attributes = { value : items[delta].value };	 
+	 }
     // Grab the current date.
     var date = new Date();
     
@@ -383,7 +388,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               if (value_set) { year = parseInt(item_date.getFullYear()); }
               // Build and theme the select list.
               _widget_year = {
-                prefix: theme('date_label', { title: 'Year' }),
+                prefix: theme('date_label', { title: t('Year') }),
                 type: 'date_select',
                 value: year,
                 attributes: attributes,
@@ -405,7 +410,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               if (value_set) { month = parseInt(item_date.getMonth()) + 1; }
               // Build and theme the select list.
               _widget_month = {
-                prefix: theme('date_label', { title: 'Month' }),
+                prefix: theme('date_label', { title: t('Month') }),
                 type: 'date_select',
                 value: month,
                 attributes: attributes,
@@ -426,7 +431,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               if (value_set) { day = parseInt(item_date.getDate()); }
               // Build and theme the select list.
               _widget_day = {
-                prefix: theme('date_label', { title: 'Day' }),
+                prefix: theme('date_label', { title: t('Day') }),
                 type: 'date_select',
                 value: day,
                 attributes: attributes,
@@ -454,7 +459,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
               // Build and theme the select list.
               _widget_hour = {
-                prefix: theme('date_label', { title: 'Hour' }),
+                prefix: theme('date_label', { title: t('Hour') }),
                 type: 'date_select',
                 value: hour,
                 attributes: attributes,
@@ -486,7 +491,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
               // Build and theme the select list.
               _widget_minute = {
-                prefix: theme('date_label', { title: 'Minute' }),
+                prefix: theme('date_label', { title: t('Minute') }),
                 type: 'date_select',
                 value: minute,
                 attributes: attributes,
@@ -504,7 +509,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     
     // Show the "from" or "to" label?
     if (!empty(todate)) {
-      var text = _value != 'value2' ? 'From' : 'To'; 
+      var text = _value != 'value2' ? t('From') : t('To'); 
       items[delta].children.push({ markup: theme('header', { text: text + ': ' }) });
     }
 
