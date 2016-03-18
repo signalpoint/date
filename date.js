@@ -53,11 +53,27 @@ function date_prepare(value) {
 }
 
 /**
+ * Given a field instance this will return true if it is configured for a 24 hour format, false otherwise.
+ * @param instance
+ * @returns {boolean}
+ */
+function date_military(instance) {
+  // We know we have a 12 hour format if the date input format string contains a 'g' or an 'h'.
+  // @see http://php.net/manual/en/function.date.php
+  var military = true;
+  if (instance.widget.settings.input_format && (
+          instance.widget.settings.input_format.indexOf('g') != -1 ||
+          instance.widget.settings.input_format.indexOf('h') != -1
+      )) { military = false; }
+  return military;
+}
+
+/**
  * Handles the onchange event for date select lists. It is given a reference
  * to the select list, the id of the hidden date field, and the grain of the
  * input.
  */
-function date_select_onchange(input, id, grain) {
+function date_select_onchange(input, id, grain, military, increment) {
   try {
     
     // Are we setting a "to date"?
@@ -70,7 +86,7 @@ function date_select_onchange(input, id, grain) {
     // Is there a "to date" already set on the current value?
     var todate_already_set = current_val.indexOf('|') != -1 ? true : false;
     
-    // Perpare the value part(s).
+    // Prepare the value part(s).
     var parts = [];
     if (todate_already_set) { parts = current_val.split('|'); }
     else { parts.push(current_val); }
@@ -79,7 +95,10 @@ function date_select_onchange(input, id, grain) {
     var date = null;
     if (!current_val) { date = new Date(); }
     else {
-      
+
+      // In case they set the "to date" before the "from date", give the "from date" a default value.
+      if (!todate && empty(parts[0])) { parts[0] = date_yyyy_mm_dd_hh_mm_ss(); }
+
       //Fixes iOS bug spaces must be replaced with T's
       if (typeof device !== 'undefined' && device.platform == 'iOS') {
 
@@ -89,31 +108,59 @@ function date_select_onchange(input, id, grain) {
         }
       }
 
-      //date = new Date(current_val);
       if (!todate) { date = new Date(parts[0]); }
       else {
         if (todate_already_set) { date = new Date(parts[1]); }
         else { date = new Date(); }
       }
+
     }
 
+    var input_val = $(input).val();
     switch (grain) {
       case 'year':
-        date.setYear($(input).val());
+        date.setYear(input_val);
         break;
       case 'month':
-        date.setMonth($(input).val()-1);
+        date.setMonth(input_val - 1);
         break;
       case 'day':
-        date.setDate($(input).val());
+        date.setDate(input_val);
         break;
       case 'hour':
-        date.setHours($(input).val());
+        if (!military) {
+          input_val = parseInt(input_val);
+          var ampm_input = $('#' + $(input).attr('id').replace(grain, 'ampm'));
+          var ampm_input_value = $(ampm_input).val();
+          switch (ampm_input_value) {
+            case 'am':
+              if (input_val == 12) { input_val = 0; }
+              date.setHours(input_val);
+              break;
+            case 'pm':
+              if (input_val == 12) { input_val = 0; }
+              date.setHours(input_val + 12);
+              break;
+          }
+        }
+        else { date.setHours(input_val); }
         break;
       case 'minute':
-        date.setMinutes($(input).val());
+        date.setMinutes(input_val);
+        break;
+      case 'ampm':
+        if (input_val == 'pm') {
+          if (date.getHours() < 12) { date.setHours(date.getHours() + 12); }
+          else { date.setHours(date.getHours()); }
+        }
+        else if (input_val == 'am') { date.setHours(date.getHours() - 12); }
         break;
     }
+
+    // Adjust the minutes.
+    date.setMinutes(_date_minute_increment_adjust(increment, date.getMinutes()));
+
+    // Finally set the value.
     var _value = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(date));
     if (!todate) { parts[0] = _value; }
     else { parts[1] = _value;  }
@@ -127,26 +174,27 @@ function date_select_onchange(input, id, grain) {
  */
 function date_field_formatter_view(entity_type, entity, field, instance, langcode, items, display) {
   try {
-    /*dpm('field');
-    console.log(field);
-    dpm('instance');
-    console.log(instance);
-    dpm('display');
-    console.log(display);
-    dpm('items');
-    console.log(items);
-    dpm('date_formats');
-    console.log(drupalgap.date_formats);
-    dpm('date_types');
-    console.log(drupalgap.date_types);*/
+
+    //console.log(field);
+    //console.log(instance);
+    //console.log(display);
+    //console.log(items);
+    //console.log('date_formats');
+    //console.log(drupalgap.date_formats);
+    //console.log('date_types');
+    //console.log(drupalgap.date_types);
     var element = {};
+
     // What type of display are we working with?
     // Manage Display - Format
     //   date_default = Date and time
     //   format_interval = Time ago
     var type = display.type;
+
     if (type == 'date_default') {
+
       var format = null;
+
       if (drupalgap.date_formats[display.settings.format_type]) {
         // Since we're unable to locate the format to use within the field or the
         // instance, we'll just use the first format type in the collection.
@@ -162,6 +210,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
         // the drupalgap.module has bundled within the date_types.
         format = drupalgap.date_types[display.settings.format_type].format;
       }
+
       // Now iterate over the items and render them using the format.
       $.each(items, function(delta, item) {
           var value2_present = typeof item.value2 !== 'undefined' ? true: false;
@@ -175,6 +224,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
             element[delta].markup += '<div class="value2">To: ' + date(format, d2.getTime()) + '</div>';
           }
       });
+
     }
     else if (type == 'format_interval') {
       var interval = display.settings.interval;
@@ -208,23 +258,15 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
  */
 function date_field_widget_form(form, form_state, field, instance, langcode, items, delta, element) {
   try {
-    
-    /*dpm('form');
-    console.log(form);
-    //dpm('form_state');
+
+    //console.log(form);
     //console.log(form_state);
-    dpm('field');
-    console.log(field);
-    dpm('instance');
-    console.log(instance);
-    //dpm('langcode');
+    //console.log(field);
+    //console.log(instance);
     //console.log(langcode);
-    dpm('items');
-    console.log(items);
-    //dpm('delta');
+    //console.log(items);
     //console.log(delta);
-    dpm('element');
-    console.log(element);*/
+    //console.log(element);
 
     // Convert the item into a hidden field that will have its value populated
     // dynamically by the widget.
@@ -286,6 +328,10 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
           if (!empty(items[delta].default_value)) { items[delta].default_value += '|'; }
           items[delta].default_value += items[delta].default_value2;
           break;
+        case 'blank':
+          items[delta].value2 = '';
+          items[delta].default_value2 = '';
+          break;
         default:
           console.log('WARNING: date_field_widget_form() - unsupported default value 2: ' + items[delta].default_value2);
           break;
@@ -317,6 +363,9 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
       else { item_date = new Date(items[delta].value); }
     }
     if (value2_set && _value == 'value2') { item_date = new Date(items[delta].item.value2); }
+
+    // Are we doing a 12 or 24 hour format? We'll assume military 24 hour by default, unless we prove otherwise.
+    var military = date_military(instance);
     
     // For each grain of the granulatiry, add a child for each. As we build the
     // children widgets we'll set them aside one by one that way we can present
@@ -327,6 +376,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     var _widget_hour = null;
     var _widget_minute = null;
     var _widget_second = null;
+    var _widget_ampm = null;
     $.each(field.settings.granularity, function(grain, value){
         if (value) {
 
@@ -337,8 +387,8 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
           if (_value == 'value2') { id += '2'; } // "To date"
           id += '-' + grain;
           var attributes = {
-            'id':id,
-            'onchange':"date_select_onchange(this, '" + items[delta].id + "', '" + grain + "')"
+            id: id,
+            onchange: "date_select_onchange(this, '" + items[delta].id + "', '" + grain + "', " + military + ", " + increment + ")"
           };
           switch (grain) {
 
@@ -441,16 +491,14 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               // Determine the current hour.
               var hour = parseInt(date.getHours());
 
-              // Build the options.
+              // Build the options, paying attention to 12 vs 24 hour format.
               var options = {};
-              for (var i = 0; i <= 23; i++) {
-                options[i] = '' + i;
-              }
+              var max = military ? 23 : 12;
+              var min = military ? 0 : 1;
+              for (var i = min; i <= max; i++) { options[i] = '' + i; }
 
               // Parse the hour from the item's value, if it is set.
-              if (value_set) {
-                hour = parseInt(item_date.getHours());
-              }
+              if (value_set) { hour = parseInt(item_date.getHours()); }
 
               // Build and theme the select list.
               _widget_hour = {
@@ -460,6 +508,21 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
                 attributes: attributes,
                 options: options
               };
+
+              // Add an am/pm selector if we're not in military time.
+              if (!military) {
+                _widget_ampm = {
+                  type: 'select',
+                  attributes: {
+                    id: attributes.id.replace(grain, 'ampm'),
+                    onclick: attributes.onchange.replace(grain, 'ampm')
+                  },
+                  options: {
+                    am: 'am',
+                    pm: 'pm'
+                  }
+                };
+              }
 
               break;
 
@@ -524,14 +587,14 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
         _widget_year.suffix = '</div>';
       }
       items[delta].children.push(_widget_year);
-    };
+    }
     if (_widget_month) {
       if (ymd_grid) {
         _widget_month.prefix = '<div class="ui-block-b">' + _widget_month.prefix;
         _widget_month.suffix = '</div>';
       }
       items[delta].children.push(_widget_month);
-    };
+    }
     if (_widget_day) {
       if (ymd_grid) {
         var _block_class = _widget_month ? 'ui-block-c' : 'ui-block-b';
@@ -539,7 +602,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
         _widget_day.suffix = '</div>';
       }
       items[delta].children.push(_widget_day);
-    };
+    }
     if (ymd_grid) { items[delta].children.push({ markup: '</div>' }); }
     
     // HIS
@@ -560,7 +623,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
         _widget_hour.suffix = '</div>';
       }
       items[delta].children.push(_widget_hour);
-    };
+    }
     if (_widget_minute) {
       if (his_grid) {
         var _block_class = 'ui-block-a';
@@ -569,10 +632,9 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
         _widget_minute.suffix = '</div>';
       }
       items[delta].children.push(_widget_minute);
-    };
-    if (_widget_second) {
-      items[delta].children.push(_widget_second);
-    };
+    }
+    if (_widget_second) { items[delta].children.push(_widget_second); }
+    if (_widget_ampm) { items[delta].children.push(_widget_ampm); }
     if (ymd_grid) { items[delta].children.push({ markup: '</div>' }); }
         
     });
@@ -591,7 +653,6 @@ function date_assemble_form_state_into_field(entity_type, bundle,
   try {
     
     field_key.use_delta = false;
-    //field_key.use_wrapper = false;
 
     // Grab our "to date" setting for the field.
     var todate = field.settings.todate;
@@ -629,13 +690,9 @@ function date_assemble_form_state_into_field(entity_type, bundle,
             break;
           case 'month':
             result[_value].month = parseInt(date.getMonth()) + 1;
-            //result.month = '' + (parseInt(date.getMonth()) + 1);
-            //if (result.month.length == 1) { result.month = '0' + result.month; }
             break;
           case 'day':
             result[_value].day = parseInt(date.getDate());
-            //result.day = '' + date.getDate();
-            //if (result.day.length == 1) { result.day = '0' + result.day; }
             break;
           case 'hour':
             result[_value].hour = parseInt(date.getHours());
@@ -664,8 +721,26 @@ function _date_minute_increment_adjust(increment, minute) {
   try {
     switch (increment) {
       case 5:
+        if (minute < 5) { minute = 0; }
+        else if (minute < 10) { minute = 5; }
+        else if (minute < 15) { minute = 10; }
+        else if (minute < 20) { minute = 15; }
+        else if (minute < 25) { minute = 20; }
+        else if (minute < 30) { minute = 25; }
+        else if (minute < 35) { minute = 30; }
+        else if (minute < 40) { minute = 35; }
+        else if (minute < 45) { minute = 40; }
+        else if (minute < 50) { minute = 45; }
+        else if (minute < 55) { minute = 50; }
+        else if (minute < 60) { minute = 55; }
         break;
       case 10:
+        if (minute < 10) { minute = 0; }
+        else if (minute < 20) { minute = 10; }
+        else if (minute < 30) { minute = 20; }
+        else if (minute < 40) { minute = 30; }
+        else if (minute < 50) { minute = 40; }
+        else if (minute < 60) { minute = 50; }
         break;
       case 15:
         if (minute < 15) { minute = 0; }
@@ -674,6 +749,8 @@ function _date_minute_increment_adjust(increment, minute) {
         else if (minute < 60) { minute = 45; }
         break;
       case 30:
+        if (minute < 30) { minute = 0; }
+        else if (minute < 60) { minute = 30; }
         break;
     }
     return minute;
@@ -692,4 +769,3 @@ function theme_date_label(variables) {
   }
   catch (error) { console.log('theme_date_label - ' + error); }
 }
-
