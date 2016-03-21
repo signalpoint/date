@@ -179,10 +179,9 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
     //console.log(instance);
     //console.log(display);
     //console.log(items);
-    //console.log('date_formats');
-    //console.log(drupalgap.date_formats);
-    //console.log('date_types');
-    //console.log(drupalgap.date_types);
+    //console.log('date_formats', drupalgap.date_formats);
+    //console.log('date_types', drupalgap.date_types);
+
     var element = {};
 
     // What type of display are we working with?
@@ -196,6 +195,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
       var format = null;
 
       if (drupalgap.date_formats[display.settings.format_type]) {
+
         // Since we're unable to locate the format to use within the field or the
         // instance, we'll just use the first format type in the collection.
         var format_type = drupalgap.date_formats[display.settings.format_type];
@@ -206,10 +206,14 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
         format = format_type.format;
       }
       else {
+
         // This is (probably) a custom date format, grab the format that
         // the drupalgap.module has bundled within the date_types.
         format = drupalgap.date_types[display.settings.format_type].format;
       }
+
+      // Strip out any characters from the format that are not included in the granularity.
+      format = date_format_cleanse(format, instance.settings.granularity);
 
       // Now iterate over the items and render them using the format.
       $.each(items, function(delta, item) {
@@ -768,4 +772,46 @@ function theme_date_label(variables) {
     '</strong></div>';
   }
   catch (error) { console.log('theme_date_label - ' + error); }
+}
+
+/**
+ * Given a date format string and the granularity settings from the date's field info field, this will remove any
+ * characters from the format that are not allowed in the granularity of the date.
+ * @param format
+ * @param granularity
+ */
+function date_format_cleanse(format, granularity) {
+  for (grain in granularity) {
+    if (!granularity.hasOwnProperty(grain)) { continue; }
+    var item = granularity[grain];
+    if (item) { continue; } // Skip any collected grains.
+    var characters = []; // @see http://php.net/manual/en/function.date.php
+    switch (grain) {
+      case 'year':
+        characters = ['L', 'o', 'Y', 'y'];
+        break;
+      case 'month':
+        characters = ['F', 'm', 'M', 'n', 't'];
+        break;
+      case 'day':
+        characters = ['d', 'D', 'j', 'l', 'L', 'N', 'S', 'w', 'z'];
+        break;
+      case 'hour':
+        characters = [' - ', 'g:', 'G:', 'h:', 'H:', 'g', 'G', 'h', 'H'];
+        break;
+      case 'minute':
+        characters = ['i:', 'i'];
+        break;
+      case 'second':
+        characters = ['s'];
+        break;
+    }
+    if (characters.length) {
+      for (var i = 0; i < characters.length; i++) {
+        var character = characters[i];
+        format = format.replace(character, '');
+      }
+    }
+  }
+  return format;
 }
