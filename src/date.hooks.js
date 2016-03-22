@@ -1,8 +1,7 @@
 /**
  * Implements hook_assemble_form_state_into_field().
  */
-function date_assemble_form_state_into_field(entity_type, bundle,
-                                             form_state_value, field, instance, langcode, delta, field_key) {
+function date_assemble_form_state_into_field(entity_type, bundle, form_state_value, field, instance, langcode, delta, field_key) {
   try {
 
     field_key.use_delta = false;
@@ -49,6 +48,12 @@ function date_assemble_form_state_into_field(entity_type, bundle,
               break;
             case 'hour':
               result[_value].hour = parseInt(date.getHours());
+              if (!date_military(instance)) {
+                if (result[_value].hour >= 12) {
+                  result[_value].hour = result[_value].hour % 12;
+                  result[_value].ampm = 'pm';
+                }
+              }
               break;
             case 'minute':
               result[_value].minute = '' + parseInt(date.getMinutes());
