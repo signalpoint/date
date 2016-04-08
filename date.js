@@ -330,7 +330,18 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               for (var i = min; i <= max; i++) { options[i] = '' + i; }
 
               // Parse the hour from the item's value, if it is set.
-              if (value_set) { hour = parseInt(item_date.getHours()); }
+              if (!military) {
+                if (value_set) {
+                  hour = parseInt(item_date.getHours());
+                  if (hour > 12) {
+                      hour -= 12;
+                  } else if (hour === 0) {
+                     hour = 12;
+                  }                
+                }
+              } else {
+                if (value_set) { hour = parseInt(item_date.getHours()); }
+              }
 
               // Build and theme the select list.
               _widget_hour = {
@@ -343,12 +354,18 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
               // Add an am/pm selector if we're not in military time.
               if (!military) {
+                
+                var gethour = parseInt(item_date.getHours());
+                
+                if (gethour < 12) {var getampm = 'am';} else {var getampm = 'pm';}
+                
                 _widget_ampm = {
                   type: 'select',
                   attributes: {
                     id: attributes.id.replace(grain, 'ampm'),
                     onclick: attributes.onchange.replace(grain, 'ampm')
                   },
+                  value: getampm,
                   options: {
                     am: 'am',
                     pm: 'pm'
