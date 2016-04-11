@@ -45,6 +45,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
       format = date_format_cleanse(format, instance.settings.granularity);
 
       // Now iterate over the items and render them using the format.
+      // @TODO might need to do the "T" stuff for iOS and/or Safari
       $.each(items, function(delta, item) {
         var value2_present = typeof item.value2 !== 'undefined' ? true: false;
         var label = value2_present ? 'From: ' : '';
@@ -70,7 +71,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
               (now.getTime() - d.getTime()) / 1000,
               interval
           );
-          if (interval_display == 'time ago') { markup += ' ago'; }
+          if (interval_display == 'time ago') { markup += ' ' + t('ago'); }
           element[delta] = { markup: markup };
         }
         else {

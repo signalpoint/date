@@ -18,15 +18,13 @@ function theme_datetime(variables) {
       html += fn.call(null, variables);
     }
     else {
-      console.log('WARNING: theme_datetime() - unsupported widget type! (' +
-          widget_type +
-          ')'
-      );
+      var msg = 'WARNING: theme_datetime() - unsupported widget type! (' + widget_type + ')';
+      console.log(msg);
     }
 
     return html;
   }
-  catch (error) { drupalgap_error(error); }
+  catch (error) { console.log('theme_datetime - ' + error); }
 }
 
 /**
@@ -34,7 +32,7 @@ function theme_datetime(variables) {
  */
 function theme_date_select(variables) {
   try { return theme('select', variables); }
-  catch (error) { drupalgap_error(error); }
+  catch (error) { console.log('theme_date_select - ' + error); }
 }
 
 /**
