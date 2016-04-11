@@ -14,7 +14,8 @@ function date_prepare(value) {
 }
 
 /**
- * Given a field instance this will return true if it is configured for a 24 hour format, false otherwise.
+ * Given a field instance this will return true if it is configured for a 24 hour format, false otherwise.  We'll assume
+ * military 24 hour by default, unless we prove otherwise.
  * @param instance
  * @returns {boolean}
  */
@@ -130,12 +131,6 @@ function date_select_onchange(input, id, grain, military, increment) {
   catch (error) { drupalgap_error(error); }
 }
 
-
-
-
-
-
-
 /**
  *
  */
@@ -179,8 +174,6 @@ function _date_minute_increment_adjust(increment, minute) {
   }
   catch (error) { console.log('_date_minute_increment_adjust - ' + error); }
 }
-
-
 
 /**
  * Given a date format string and the granularity settings from the date's field info field, this will remove any
