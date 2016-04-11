@@ -13,8 +13,8 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     //console.log(delta);
     //console.log(element);
 
-    // Convert the item into a hidden field that will have its value populated
-    // dynamically by the widget.
+    // Convert the item into a hidden field that will have its value populated dynamically by the widget. We'll store
+    // the value (and potential value2) within the element using this format: YYYY-MM-DD HH:MM:SS|YYYY-MM-DD HH:MM:SS
     items[delta].type = 'hidden';
 
     // Determine if the "to date" is disabled, optional or required.
@@ -83,6 +83,18 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
       }
     }
 
+    // If we have a value2, append it to our hidden input's value and default value. We need to set the value attribute
+    // on this item, otherwise the DG FAPI will default it to the item's value, which is only the first part of the
+    // date.
+    if (value2_set && items[delta].value.indexOf('|') == -1) {
+      items[delta].value += '|' + items[delta].item.value2;
+      if (!items[delta].attributes) { items[delta].attributes = {}; }
+      items[delta].attributes.value = items[delta].value;
+    }
+    if ((value_set || value2_set) && empty(items[delta].default_value) && !empty(items[delta].value)) {
+      items[delta].default_value = items[delta].value;
+    }
+
     // Grab the current date.
     var date = new Date();
 
@@ -109,10 +121,10 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
       }
       if (value2_set && _value == 'value2') { item_date = new Date(items[delta].item.value2); }
 
-      // Are we doing a 12 or 24 hour format? We'll assume military 24 hour by default, unless we prove otherwise.
+      // Are we doing a 12 or 24 hour format?
       var military = date_military(instance);
 
-      // For each grain of the granulatiry, add a child for each. As we build the
+      // For each grain of the granularity, add a child for each. As we build the
       // children widgets we'll set them aside one by one that way we can present
       // the inputs in a desirable order.
       var _widget_year = null;
@@ -210,7 +222,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
             // DAY
             case 'day':
-              // Determine the current month.
+              // Determine the current day.
               var day = parseInt(date.getDate());
               // Build the options.
               var options = {};
@@ -243,7 +255,13 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               for (var i = min; i <= max; i++) { options[i] = '' + i; }
 
               // Parse the hour from the item's value, if it is set.
-              if (value_set) { hour = parseInt(item_date.getHours()); }
+              if (value_set) {
+                hour = parseInt(item_date.getHours());
+                if (!military) {
+                  if (hour > 12) { hour -= 12; }
+                  else if (hour === 0) { hour = 12; }
+                }
+              }
 
               // Build and theme the select list.
               _widget_hour = {
@@ -262,6 +280,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
                     id: attributes.id.replace(grain, 'ampm'),
                     onclick: attributes.onchange.replace(grain, 'ampm')
                   },
+                  value: parseInt(item_date.getHours()) < 12 ? 'am' : 'pm',
                   options: {
                     am: 'am',
                     pm: 'pm'
