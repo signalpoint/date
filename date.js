@@ -45,6 +45,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
       format = date_format_cleanse(format, instance.settings.granularity);
 
       // Now iterate over the items and render them using the format.
+      // @TODO might need to do the "T" stuff for iOS and/or Safari
       $.each(items, function(delta, item) {
         var value2_present = typeof item.value2 !== 'undefined' ? true: false;
         var label = value2_present ? 'From: ' : '';
@@ -100,8 +101,8 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     //console.log(delta);
     //console.log(element);
 
-    // Convert the item into a hidden field that will have its value populated
-    // dynamically by the widget.
+    // Convert the item into a hidden field that will have its value populated dynamically by the widget. We'll store
+    // the value (and potential value2) within the element using this format: YYYY-MM-DD HH:MM:SS|YYYY-MM-DD HH:MM:SS
     items[delta].type = 'hidden';
 
     // Determine if the "to date" is disabled, optional or required.
@@ -170,6 +171,18 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
       }
     }
 
+    // If we have a value2, append it to our hidden input's value and default value. We need to set the value attribute
+    // on this item, otherwise the DG FAPI will default it to the item's value, which is only the first part of the
+    // date.
+    if (value2_set && items[delta].value.indexOf('|') == -1) {
+      items[delta].value += '|' + items[delta].item.value2;
+      if (!items[delta].attributes) { items[delta].attributes = {}; }
+      items[delta].attributes.value = items[delta].value;
+    }
+    if ((value_set || value2_set) && empty(items[delta].default_value) && !empty(items[delta].value)) {
+      items[delta].default_value = items[delta].value;
+    }
+
     // Grab the current date.
     var date = new Date();
 
@@ -196,10 +209,10 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
       }
       if (value2_set && _value == 'value2') { item_date = new Date(items[delta].item.value2); }
 
-      // Are we doing a 12 or 24 hour format? We'll assume military 24 hour by default, unless we prove otherwise.
+      // Are we doing a 12 or 24 hour format?
       var military = date_military(instance);
 
-      // For each grain of the granulatiry, add a child for each. As we build the
+      // For each grain of the granularity, add a child for each. As we build the
       // children widgets we'll set them aside one by one that way we can present
       // the inputs in a desirable order.
       var _widget_year = null;
@@ -297,7 +310,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
             // DAY
             case 'day':
-              // Determine the current month.
+              // Determine the current day.
               var day = parseInt(date.getDate());
               // Build the options.
               var options = {};
@@ -330,17 +343,12 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               for (var i = min; i <= max; i++) { options[i] = '' + i; }
 
               // Parse the hour from the item's value, if it is set.
-              if (!military) {
-                if (value_set) {
-                  hour = parseInt(item_date.getHours());
-                  if (hour > 12) {
-                      hour -= 12;
-                  } else if (hour === 0) {
-                     hour = 12;
-                  }                
+              if (value_set) {
+                hour = parseInt(item_date.getHours());
+                if (!military) {
+                  if (hour > 12) { hour -= 12; }
+                  else if (hour === 0) { hour = 12; }
                 }
-              } else {
-                if (value_set) { hour = parseInt(item_date.getHours()); }
               }
 
               // Build and theme the select list.
@@ -354,18 +362,13 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
               // Add an am/pm selector if we're not in military time.
               if (!military) {
-                
-                var gethour = parseInt(item_date.getHours());
-                
-                if (gethour < 12) {var getampm = 'am';} else {var getampm = 'pm';}
-                
                 _widget_ampm = {
                   type: 'select',
                   attributes: {
                     id: attributes.id.replace(grain, 'ampm'),
                     onclick: attributes.onchange.replace(grain, 'ampm')
                   },
-                  value: getampm,
+                  value: parseInt(item_date.getHours()) < 12 ? 'am' : 'pm',
                   options: {
                     am: 'am',
                     pm: 'pm'
@@ -510,7 +513,8 @@ function date_prepare(value) {
 }
 
 /**
- * Given a field instance this will return true if it is configured for a 24 hour format, false otherwise.
+ * Given a field instance this will return true if it is configured for a 24 hour format, false otherwise.  We'll assume
+ * military 24 hour by default, unless we prove otherwise.
  * @param instance
  * @returns {boolean}
  */
@@ -626,12 +630,6 @@ function date_select_onchange(input, id, grain, military, increment) {
   catch (error) { drupalgap_error(error); }
 }
 
-
-
-
-
-
-
 /**
  *
  */
@@ -675,8 +673,6 @@ function _date_minute_increment_adjust(increment, minute) {
   }
   catch (error) { console.log('_date_minute_increment_adjust - ' + error); }
 }
-
-
 
 /**
  * Given a date format string and the granularity settings from the date's field info field, this will remove any
