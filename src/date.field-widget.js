@@ -38,10 +38,10 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     ) { value2_set = false; }
 
     // If the value isn't set, check if a default value is available.
-    if (!value_set && items[delta].default_value == '' && instance.settings.default_value != '') {
+    if (!value_set && (items[delta].default_value == '' || !items[delta].default_value) && instance.settings.default_value != '') {
       items[delta].default_value = instance.settings.default_value;
     }
-    if (!value2_set) {
+    if (!value2_set && (items[delta].default_value2 == '' || !items[delta].default_value2) && instance.settings.default_value2 != '') {
       items[delta].default_value2 = instance.settings.default_value2;
     }
 
@@ -91,9 +91,6 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
       if (!items[delta].attributes) { items[delta].attributes = {}; }
       items[delta].attributes.value = items[delta].value;
     }
-    if ((value_set || value2_set) && empty(items[delta].default_value) && !empty(items[delta].value)) {
-      items[delta].default_value = items[delta].value;
-    }
 
     // Grab the current date.
     var date = new Date();
@@ -110,7 +107,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     if (!empty(todate)) { values.push('value2'); }
     $.each(values, function(_index, _value) {
 
-      // Grab the item date, if it is set.
+      // Grab the item date, if it is set, otherwise grab the current date/time.
       var item_date = null;
       if (value_set && _value == 'value') {
         if (items[delta].value.indexOf('|') != -1) {
@@ -120,6 +117,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
         else { item_date = new Date(items[delta].value); }
       }
       if (value2_set && _value == 'value2') { item_date = new Date(items[delta].item.value2); }
+      if (!value_set && !value2_set && !item_date) { item_date = new Date(); }
 
       // Are we doing a 12 or 24 hour format?
       var military = date_military(instance);
