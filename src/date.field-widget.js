@@ -64,7 +64,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     }
     if (!value2_set && items[delta].default_value2 != '') {
       switch (items[delta].default_value2) {
-        case 'same':
+        case 'now':
           var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
           items[delta].value2 = now;
           items[delta].default_value2 = now;
