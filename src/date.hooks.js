@@ -1,18 +1,30 @@
 /**
+ * Implements hook_services_request_pre_postprocess_alter().
+ */
+function date_services_request_pre_postprocess_alter(options, result) {
+  // After the system connect, add the time zones to the drupalgap object if they are present.
+  if (options.service == 'system' && options.resource == 'connect' && result.time_zones) {
+    drupalgap.time_zones = result.time_zones;
+  }
+}
+
+/**
  * Implements hook_assemble_form_state_into_field().
  */
-function date_assemble_form_state_into_field(entity_type, bundle, form_state_value, field, instance, langcode, delta, field_key) {
+function date_assemble_form_state_into_field(entity_type, bundle, form_state_value, field, instance, langcode, delta, field_key, form) {
   try {
+
+    console.log('assemble', arguments);
 
     field_key.use_delta = false;
 
     // Grab our "to date" setting for the field.
     var todate = field.settings.todate;
 
+    //console.log('BYE', form_state_value, field, instance);
+
     // On iOS we must place a 'T' on the date.
-    if (typeof device !== 'undefined' && device.platform == 'iOS') {
-      form_state_value = form_state_value.replace(/ /g, 'T');
-    }
+    if (date_apple_device()) { form_state_value = date_apple_cleanse(form_state_value); }
     var result = {};
 
     var values = ['value'];
@@ -29,11 +41,43 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
       if (todate_already_set) { parts = form_state_value.split('|'); }
       else { parts.push(form_state_value); }
 
+      //console.log('HELLO', form_state_value, parts, form_state_value);
+
+      // Add timezone object to result, if necessary.
+      if (date_tz_handling_is_date(field)) {
+        var timezone = {
+          timezone: $('#' + form.elements[field.field_name][langcode][delta].id + '-timezone').val()
+        };
+        if (field.settings.timezone_db) { timezone.timezone_db = field.settings.timezone_db; }
+        result.timezone = timezone;
+      }
+
       $.each(field.settings.granularity, function(grain, value) {
 
         var date = null;
-        if (_value == 'value') { date = new Date(parts[0]); }
-        else if (_value == 'value2') {  date = new Date(parts[1]); }
+        if (_value == 'value') {
+          date = new Date(parts[0]);
+          var offset = parseInt(form.elements[field.field_name][langcode][delta].item.offset);
+          if (offset) { result.offset = offset; }
+          if (date_apple_device() && offset) {
+
+            date = new Date(date.toUTCString());
+            date = date.getTime() / 1000;
+            date -= parseInt(offset);
+            date = new Date(date * 1000);
+          }
+        }
+        else if (_value == 'value2') {
+          date = new Date(parts[1]);
+          var offset2 = parseInt(form.elements[field.field_name][langcode][delta].item.offset2);
+          if (offset2) { result.offset2 = offset2; }
+          if (date_apple_device() && offset2) {
+            date = new Date(date.toUTCString());
+            date = date.getTime() / 1000;
+            date -= parseInt(offset2);
+            date = new Date(date * 1000);
+          }
+        }
 
         if (value) {
           switch (grain) {
@@ -64,6 +108,8 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
       });
 
     });
+
+    console.log('RESULT', result);
 
     return result;
   }
