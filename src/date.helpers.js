@@ -3,14 +3,38 @@
  * @param value
  * @returns {Date}
  */
-function date_prepare(value) {
+function date_prepare(value, offset) {
   try {
     // @see http://stackoverflow.com/a/16664730/763010
-    return new Date(Date.parse(value.replace(/-/g,'/')));
+    if (date_apple_device()) { value = date_apple_cleanse(value); }
+    var replaced = value.replace(/-/g,'/');
+    // Parse the date from the string. Note that iOS doesn't like date parse,
+    // we break it into parts instead.
+    if (!date_apple_device()) {
+      return new Date(Date.parse(replaced));
+    }
+    else {
+      var a = replaced.split(/[^0-9]/);
+      var d = new Date(a[0], a[1]-1, a[2], a[3], a[4], a[5]);
+      return d;
+    }
   }
-  catch (error) {
-    console.log('date_prepare() - ' + error);
-  }
+  catch (error) { console.log('date_prepare() - ' + error); }
+}
+
+/**
+ * Returns true if the device is an Apple device
+ */
+function date_apple_device() {
+  return (typeof device !== 'undefined' && device.platform == 'iOS') ||
+  (navigator.vendor && navigator.vendor.indexOf('Apple') > -1)
+}
+
+/**
+ * Given a date string, this will cleanse it for use with JavaScript Date on an Apple device.
+ */
+function date_apple_cleanse(input) {
+  return input.replace(/ /g, 'T');
 }
 
 /**
@@ -35,8 +59,10 @@ function date_military(instance) {
  * to the select list, the id of the hidden date field, and the grain of the
  * input.
  */
-function date_select_onchange(input, id, grain, military, increment) {
+function date_select_onchange(input, id, grain, military, increment, offset) {
   try {
+
+    // @TODO - for Joe, we need the time zone offset placed here as well!
 
     // Are we setting a "to date"?
     var todate = $(input).attr('id').indexOf('value2') != -1 ? true : false;
@@ -54,6 +80,7 @@ function date_select_onchange(input, id, grain, military, increment) {
     else { parts.push(current_val); }
 
     // Get the date for the current value, or just default to now.
+    console.log('parts before', parts);
     var date = null;
     if (!current_val) { date = new Date(); }
     else {
@@ -62,11 +89,15 @@ function date_select_onchange(input, id, grain, military, increment) {
       if (!todate && empty(parts[0])) { parts[0] = date_yyyy_mm_dd_hh_mm_ss(); }
 
       //Fixes iOS bug spaces must be replaced with T's
-      if (typeof device !== 'undefined' && device.platform == 'iOS') {
+      if (date_apple_device()) {
 
-        if (!todate) { parts[0] = parts[0].replace(' ', 'T'); }
+        if (!todate) {
+          parts[0] = date_apple_cleanse(parts[0]);
+        }
         else {
-          if (todate_already_set) { parts[1] = parts[1].replace(' ', 'T'); }
+          if (todate_already_set) {
+            parts[1] = date_apple_cleanse(parts[1]);
+          }
         }
       }
 
@@ -76,9 +107,13 @@ function date_select_onchange(input, id, grain, military, increment) {
         else { date = new Date(); }
       }
 
+      if (date_apple_device() && offset) { date = date_item_adjust_offset(date, offset); }
+
     }
+    console.log('parts after', parts);
 
     var input_val = $(input).val();
+    console.log(grain);
     switch (grain) {
       case 'year':
         date.setYear(input_val);
@@ -120,12 +155,15 @@ function date_select_onchange(input, id, grain, military, increment) {
     }
 
     // Adjust the minutes.
+    console.log('before', date);
     date.setMinutes(_date_minute_increment_adjust(increment, date.getMinutes()));
+    console.log('after', date);
 
     // Finally set the value.
     var _value = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(date));
     if (!todate) { parts[0] = _value; }
     else { parts[1] = _value;  }
+    console.log('value', _value, date, parts);
     $('#' + id).val(parts.join('|'));
   }
   catch (error) { drupalgap_error(error); }
@@ -215,4 +253,52 @@ function date_format_cleanse(format, granularity) {
     }
   }
   return format;
+}
+
+function date_item_adjust_offset(d, offset) {
+  d = new Date(d.toUTCString());
+  d = d.getTime() / 1000;
+  d -= parseInt(offset);
+  return new Date(d * 1000);
+}
+
+function _date_get_item_and_offset(items, delta, _value, value_set, value2_set) {
+  try {
+    // Grab the item date and offset, if they are set, otherwise grab the current date/time.
+    var item_date = null;
+    var offset = null;
+    if (value_set && _value == 'value') {
+      if (items[delta].value.indexOf('|') != -1) {
+        var parts = items[delta].value.split('|');
+//          item_date = date_prepare(parts[0]);
+        item_date = new Date(!date_apple_device() ? parts[0] : date_apple_cleanse(parts[0]));
+      }
+      else {
+//          item_date = date_prepare(items[delta].value);
+        item_date = new Date(!date_apple_device() ? items[delta].value : date_apple_cleanse(items[delta].value));
+      }
+      if (items[delta].item && items[delta].item.offset) {
+        offset = items[delta].item.offset
+      }
+    }
+    if (value2_set && _value == 'value2') {
+//        item_date = date_prepare(items[delta].item.value2);
+      item_date = new Date(!date_apple_device() ? items[delta].item.value2 : date_apple_cleanse(items[delta].item.value2));
+      if (items[delta].item && items[delta].item.offset2) {
+        offset = items[delta].item.offset2;
+      }
+    }
+    if (!value_set && !value2_set && !item_date) { item_date = new Date(); }
+
+    // If we're on an Apple device, convert the date using the offset values from Drupal if there are any.
+    if (date_apple_device() && offset) {
+      item_date = date_item_adjust_offset(item_date, offset);
+    }
+
+    return {
+      item_date: item_date,
+      offset: offset
+    }
+  }
+  catch (error) { console.log('_date_get_item_and_offset', error); }
 }
