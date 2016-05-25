@@ -6,12 +6,12 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
     //console.log(form);
     //console.log(form_state);
-    //console.log(field);
-    //console.log(instance);
+    console.log(field);
+    console.log(instance);
     //console.log(langcode);
-    //console.log(items);
+    console.log(items);
     //console.log(delta);
-    //console.log(element);
+    console.log(element);
 
     // Convert the item into a hidden field that will have its value populated dynamically by the widget. We'll store
     // the value (and potential value2) within the element using this format: YYYY-MM-DD HH:MM:SS|YYYY-MM-DD HH:MM:SS
@@ -101,23 +101,15 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     //if (value_set) { item_date = new Date(items[delta].value); }
     //if (value2_set) { item_date2 = new Date(items[delta].value2); }
 
-    // Depending on if we are collecting an end date or not, build a widget for
-    // each date value.
+    // Depending if we are collecting an end date or not, build a widget for each date value.
     var values = ['value'];
     if (!empty(todate)) { values.push('value2'); }
     $.each(values, function(_index, _value) {
 
-      // Grab the item date, if it is set, otherwise grab the current date/time.
-      var item_date = null;
-      if (value_set && _value == 'value') {
-        if (items[delta].value.indexOf('|') != -1) {
-          var parts = items[delta].value.split('|');
-          item_date = new Date(parts[0]);
-        }
-        else { item_date = new Date(items[delta].value); }
-      }
-      if (value2_set && _value == 'value2') { item_date = new Date(items[delta].item.value2); }
-      if (!value_set && !value2_set && !item_date) { item_date = new Date(); }
+      // Get the item date and offset, if any.
+      var date_and_offset = _date_get_item_and_offset(items, delta, _value, value_set, value2_set);
+      var item_date = date_and_offset.item_date;
+      var offset = date_and_offset.offset;
 
       // Are we doing a 12 or 24 hour format?
       var military = date_military(instance);
@@ -132,7 +124,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
       var _widget_minute = null;
       var _widget_second = null;
       var _widget_ampm = null;
-      $.each(field.settings.granularity, function(grain, value){
+      $.each(field.settings.granularity, function(grain, value) {
         if (value) {
 
           // Build a unique html element id for this select list. Set up an
@@ -143,132 +135,28 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
           id += '-' + grain;
           var attributes = {
             id: id,
-            onchange: "date_select_onchange(this, '" + items[delta].id + "', '" + grain + "', " + military + ", " + increment + ")"
+            onchange: "date_select_onchange(this, '" + items[delta].id + "', '" + grain + "', " + military + ", " + increment + ", " + offset + ")"
           };
           switch (grain) {
 
             // YEAR
             case 'year':
-              // Determine the current year and the range of year(s) to provide
-              // as options. The range can either be relative, absolute or both,
-              // e.g. -3:+3, 2000:2010, 2000:+3
-              var year = parseInt(date.getFullYear());
-              var year_range = instance.widget.settings.year_range;
-              var parts = year_range.split(':');
-              // Determine the low end year integer value.
-              var low = parts[0];
-              var low_absolute = true;
-              if (low.indexOf('-') != -1 || low.indexOf('+') != -1) { low_absolute = false; }
-              if (!low_absolute) {
-                if (low.indexOf('+') != -1) {
-                  low = low.replace('+', '');
-                }
-                low = parseInt(low) + year;
-              }
-              else { low = parseInt(low); }
-              if (!low) { low = year; }
-              // Determine the high end year integer value.
-              var high = parts[1];
-              var high_absolute = true;
-              if (high.indexOf('-') != -1 || high.indexOf('+') != -1) { high_absolute = false; }
-              if (!high_absolute) {
-                if (high.indexOf('+') != -1) {
-                  high = high.replace('+', '');
-                }
-                high = parseInt(high) + year;
-              }
-              else { high = parseInt(high); }
-              if (!high) { high = year; }
-              // Build the options.
-              var options = {};
-              for (var i = low; i <= high; i++) {
-                options[i] = i;
-              }
-              // Parse the year from the item's value, if it is set.
-              if (value_set) { year = parseInt(item_date.getFullYear()); }
-              // Build and theme the select list.
-              _widget_year = {
-                prefix: theme('date_label', { title: t('Year') }),
-                type: 'date_select',
-                value: year,
-                attributes: attributes,
-                options: options
-              };
-
+              _widget_year = _date_grain_widget_year(date, instance, attributes, value_set, value2_set, item_date);
               break;
 
             // MONTH
             case 'month':
-              // Determine the current month.
-              var month = parseInt(date.getMonth()) + 1;
-              // Build the options.
-              var options = {};
-              for (var i = 1; i <= 12; i++) {
-                options[i] = '' + i;
-              }
-              // Parse the month from the item's value, if it is set.
-              if (value_set) { month = parseInt(item_date.getMonth()) + 1; }
-              // Build and theme the select list.
-              _widget_month = {
-                prefix: theme('date_label', { title: t('Month') }),
-                type: 'date_select',
-                value: month,
-                attributes: attributes,
-                options: options
-              };
+              _widget_month = _date_grain_widget_month(date, instance, attributes, value_set, value2_set, item_date);
               break;
 
             // DAY
             case 'day':
-              // Determine the current day.
-              var day = parseInt(date.getDate());
-              // Build the options.
-              var options = {};
-              for (var i = 1; i <= 31; i++) {
-                options[i] = '' + i;
-              }
-              // Parse the day from the item's value, if it is set.
-              if (value_set) { day = parseInt(item_date.getDate()); }
-              // Build and theme the select list.
-              _widget_day = {
-                prefix: theme('date_label', { title: t('Day') }),
-                type: 'date_select',
-                value: day,
-                attributes: attributes,
-                options: options
-              };
-
+              _widget_day = _date_grain_widget_day(date, instance, attributes, value_set, value2_set, item_date);
               break;
 
             // HOUR
             case 'hour':
-
-              // Determine the current hour.
-              var hour = parseInt(date.getHours());
-
-              // Build the options, paying attention to 12 vs 24 hour format.
-              var options = {};
-              var max = military ? 23 : 12;
-              var min = military ? 0 : 1;
-              for (var i = min; i <= max; i++) { options[i] = '' + i; }
-
-              // Parse the hour from the item's value, if it is set.
-              if (value_set) {
-                hour = parseInt(item_date.getHours());
-                if (!military) {
-                  if (hour > 12) { hour -= 12; }
-                  else if (hour === 0) { hour = 12; }
-                }
-              }
-
-              // Build and theme the select list.
-              _widget_hour = {
-                prefix: theme('date_label', { title: t('Hour') }),
-                type: 'date_select',
-                value: hour,
-                attributes: attributes,
-                options: options
-              };
+              _widget_hour = _date_grain_widget_hour(date, instance, attributes, value_set, value2_set, item_date, military);
 
               // Add an am/pm selector if we're not in military time.
               if (!military) {
@@ -285,39 +173,11 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
                   }
                 };
               }
-
               break;
 
             // MINUTE
             case 'minute':
-
-              // Determine the current minute.
-              var minute = parseInt(date.getMinutes());
-
-              // Build the options.
-              var options = {};
-              for (var i = 0; i <= 59; i += increment) {
-                var text = '' + i;
-                if (text.length == 1) { text = '0' + text; }
-                options[i] = text;
-              }
-
-              // Parse the minute from the item's value, if it is set.
-              if (value_set && _value == 'value') { minute = parseInt(item_date.getMinutes()); }
-              else if (value2_set && _value == 'value2') { minute = parseInt(item_date.getMinutes()); }
-              if (increment != 1) {
-                minute = _date_minute_increment_adjust(increment, minute);
-              }
-
-              // Build and theme the select list.
-              _widget_minute = {
-                prefix: theme('date_label', { title: t('Minute') }),
-                type: 'date_select',
-                value: minute,
-                attributes: attributes,
-                options: options
-              };
-
+              _widget_minute = _date_grain_widget_minute(date, instance, attributes, value_set, value2_set, item_date, _value, increment);
               break;
 
             default:
@@ -333,76 +193,53 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
         items[delta].children.push({ markup: theme('header', { text: text + ': ' }) });
       }
 
-      // Add the children widgets in the order of "y-m-d h-i-s", and wrap them in
-      // jQM grids as necessary to help with UX...
-
-      // YMD
-      var ymd_grid = null;
-      if (_widget_month && !_widget_day) { ymd_grid = 'ui-grid-a'; }
-      else if (_widget_month && _widget_day) { ymd_grid = 'ui-grid-b'; }
-      if (ymd_grid) {
-        items[delta].children.push({ markup: '<div class="' + ymd_grid + '">' });
-      }
-      if (_widget_year) {
-        if (ymd_grid) {
-          _widget_year.prefix = '<div class="ui-block-a">' + _widget_year.prefix;
-          _widget_year.suffix = '</div>';
-        }
-        items[delta].children.push(_widget_year);
-      }
-      if (_widget_month) {
-        if (ymd_grid) {
-          _widget_month.prefix = '<div class="ui-block-b">' + _widget_month.prefix;
-          _widget_month.suffix = '</div>';
-        }
-        items[delta].children.push(_widget_month);
-      }
-      if (_widget_day) {
-        if (ymd_grid) {
-          var _block_class = _widget_month ? 'ui-block-c' : 'ui-block-b';
-          _widget_day.prefix = '<div class="' + _block_class + '">' + _widget_day.prefix;
-          _widget_day.suffix = '</div>';
-        }
-        items[delta].children.push(_widget_day);
-      }
-      if (ymd_grid) { items[delta].children.push({ markup: '</div>' }); }
-
-      // HIS
-      var his_grid = null;
-      if (_widget_hour) {
-        if (_widget_minute && !_widget_second) { his_grid = 'ui-grid-a'; }
-        else if (_widget_minute && _widget_second) { his_grid = 'ui-grid-b'; }
-      }
-      else {
-        if (_widget_minute && _widget_second) { his_grid = 'ui-grid-b'; }
-      }
-      if (his_grid) {
-        items[delta].children.push({ markup: '<div class="' + his_grid + '">' });
-      }
-      if (_widget_hour) {
-        if (his_grid) {
-          _widget_hour.prefix = '<div class="ui-block-a">' + _widget_hour.prefix;
-          _widget_hour.suffix = '</div>';
-        }
-        items[delta].children.push(_widget_hour);
-      }
-      if (_widget_minute) {
-        if (his_grid) {
-          var _block_class = 'ui-block-a';
-          if (_widget_hour) { _block_class = 'ui-block-b'; }
-          _widget_minute.prefix = '<div class="' + _block_class + '">' + _widget_minute.prefix;
-          _widget_minute.suffix = '</div>';
-        }
-        items[delta].children.push(_widget_minute);
-      }
-      if (_widget_second) { items[delta].children.push(_widget_second); }
-      if (_widget_ampm) { items[delta].children.push(_widget_ampm); }
-      if (ymd_grid) { items[delta].children.push({ markup: '</div>' }); }
+      // Wrap the widget with some better UX.
+      _date_grain_widgets_ux_wrap(
+          items,
+          delta,
+          _widget_year,
+          _widget_month,
+          _widget_day,
+          _widget_hour,
+          _widget_minute,
+          _widget_second,
+          _widget_ampm
+      );
 
     });
+
+    // If the field base is configured for the "date's timezone handling", add a timezone picker to the widget.
+    if (date_tz_handling_is_date(field)) {
+      var tz_options = {};
+      $.each(drupalgap.time_zones, function(i, tz) { tz_options[tz] = tz; });
+      var _widget_tz_handling = {
+        type: 'select',
+        options: tz_options,
+        title: t('Timezone'),
+        attributes: {
+          id: items[delta].id + '-timezone'
+        }
+      };
+      if (value_set && items[delta].item.timezone) { // Set timezone for existing value.
+        _widget_tz_handling.value = items[delta].item.timezone;
+      }
+      else if (!value_set && field.settings.timezone_db) { // Set timezone for new value.
+        _widget_tz_handling.value = field.settings.timezone_db;
+      }
+      items[delta].children.push(_widget_tz_handling);
+    }
 
   }
   catch (error) {
     console.log('date_field_widget_form - ' + error);
   }
+}
+
+/**
+ * Given a date field base, this will return true if its time zone handling is set to date.
+ * @param field
+ * @returns {*|boolean}
+ */
+function date_tz_handling_is_date(field) {
+  return field.settings.tz_handling && field.settings.tz_handling == 'date' && drupalgap.time_zones;
 }
