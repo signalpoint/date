@@ -25,63 +25,9 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     var d = new Date();
     d.setMinutes(_date_minute_increment_adjust(increment, d.getMinutes()));
 
-    // Determine if values have been set for this item.
-    var value_set = true;
-    var value2_set = true;
-    if (typeof items[delta].value === 'undefined' || items[delta].value == '') {
-      value_set = false;
-    }
-    if (
-        typeof items[delta].item === 'undefined' ||
-        typeof items[delta].item.value2 === 'undefined' ||
-        items[delta].item.value2 == ''
-    ) { value2_set = false; }
-
-    // If the value isn't set, check if a default value is available.
-    if (!value_set && (items[delta].default_value == '' || !items[delta].default_value) && instance.settings.default_value != '') {
-      items[delta].default_value = instance.settings.default_value;
-    }
-    if (!value2_set && (items[delta].default_value2 == '' || !items[delta].default_value2) && instance.settings.default_value2 != '') {
-      items[delta].default_value2 = instance.settings.default_value2;
-    }
-
-    // If the value isn't set and we have a default value, let's set it.
-    if (!value_set && items[delta].default_value != '') {
-      switch (items[delta].default_value) {
-        case 'now':
-          var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
-          items[delta].value = now;
-          items[delta].default_value = now;
-          break;
-        case 'blank':
-          items[delta].value = '';
-          items[delta].default_value = '';
-          break;
-        default:
-          console.log('WARNING: date_field_widget_form() - unsupported default value: ' + items[delta].default_value);
-          break;
-      }
-    }
-    if (!value2_set && items[delta].default_value2 != '') {
-      switch (items[delta].default_value2) {
-        case 'same':
-          var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
-          items[delta].value2 = now;
-          items[delta].default_value2 = now;
-          if (!empty(items[delta].value)) { items[delta].value += '|'; }
-          items[delta].value += items[delta].value2;
-          if (!empty(items[delta].default_value)) { items[delta].default_value += '|'; }
-          items[delta].default_value += items[delta].default_value2;
-          break;
-        case 'blank':
-          items[delta].value2 = '';
-          items[delta].default_value2 = '';
-          break;
-        default:
-          console.log('WARNING: date_field_widget_form() - unsupported default value 2: ' + items[delta].default_value2);
-          break;
-      }
-    }
+    var date_values_set = _date_widget_check_and_set_defaults(items, delta, instance);
+    var value_set =  date_values_set.value_set;
+    var value2_set =  date_values_set.value2_set;
 
     // If we have a value2, append it to our hidden input's value and default value. We need to set the value attribute
     // on this item, otherwise the DG FAPI will default it to the item's value, which is only the first part of the
