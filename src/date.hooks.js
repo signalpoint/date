@@ -21,6 +21,9 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
     // Grab our "to date" setting for the field.
     var todate = field.settings.todate;
 
+    // Do we have an item?
+    var have_item = typeof form.elements[field.field_name][langcode][delta].item !== 'undefined';
+
     //console.log('BYE', form_state_value, field, instance);
 
     // On iOS we must place a 'T' on the date.
@@ -57,25 +60,28 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
         var date = null;
         if (_value == 'value') {
           date = new Date(parts[0]);
-          var offset = parseInt(form.elements[field.field_name][langcode][delta].item.offset);
-          if (offset) { result.offset = offset; }
-          if (date_apple_device() && offset) {
-
-            date = new Date(date.toUTCString());
-            date = date.getTime() / 1000;
-            date -= parseInt(offset);
-            date = new Date(date * 1000);
+          if (have_item) {
+            var offset = parseInt(form.elements[field.field_name][langcode][delta].item.offset);
+            if (offset) { result.offset = offset; }
+            if (date_apple_device() && offset) {
+              date = new Date(date.toUTCString());
+              date = date.getTime() / 1000;
+              date -= parseInt(offset);
+              date = new Date(date * 1000);
+            }
           }
         }
         else if (_value == 'value2') {
           date = new Date(parts[1]);
-          var offset2 = parseInt(form.elements[field.field_name][langcode][delta].item.offset2);
-          if (offset2) { result.offset2 = offset2; }
-          if (date_apple_device() && offset2) {
-            date = new Date(date.toUTCString());
-            date = date.getTime() / 1000;
-            date -= parseInt(offset2);
-            date = new Date(date * 1000);
+          if (have_item) {
+            var offset2 = parseInt(form.elements[field.field_name][langcode][delta].item.offset2);
+            if (offset2) { result.offset2 = offset2; }
+            if (date_apple_device() && offset2) {
+              date = new Date(date.toUTCString());
+              date = date.getTime() / 1000;
+              date -= parseInt(offset2);
+              date = new Date(date * 1000);
+            }
           }
         }
 
