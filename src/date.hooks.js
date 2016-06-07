@@ -14,7 +14,7 @@ function date_services_request_pre_postprocess_alter(options, result) {
 function date_assemble_form_state_into_field(entity_type, bundle, form_state_value, field, instance, langcode, delta, field_key, form) {
   try {
 
-    console.log('assemble', arguments);
+    //console.log('assemble', arguments);
 
     field_key.use_delta = false;
 
@@ -115,7 +115,7 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
 
     });
 
-    console.log('RESULT', result);
+    //console.log('RESULT', result);
 
     return result;
   }
