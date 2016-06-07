@@ -146,11 +146,22 @@ function date_select_onchange(input, id, grain, military, increment, offset) {
         date.setMinutes(input_val);
         break;
       case 'ampm':
+
+        // Stop if they picked the same val twice.
+        if (input.date_ampm_old_value == input_val ||
+          (
+            typeof input.date_ampm_old_value === 'undefined' &&
+            $(input).attr('date_ampm_original_value') == input_val
+          )
+        ) { return; }
+
+        // Adjust the hours by +/- 12 as needed.
         if (input_val == 'pm') {
           if (date.getHours() < 12) { date.setHours(date.getHours() + 12); }
           else { date.setHours(date.getHours()); }
         }
         else if (input_val == 'am') { date.setHours(date.getHours() - 12); }
+
         break;
     }
 
