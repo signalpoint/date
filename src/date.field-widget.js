@@ -6,12 +6,12 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
     //console.log(form);
     //console.log(form_state);
-    console.log(field);
-    console.log(instance);
+    //console.log(field);
+    //console.log(instance);
     //console.log(langcode);
-    console.log(items);
+    //console.log(items);
     //console.log(delta);
-    console.log(element);
+    //console.log(element);
 
     // Convert the item into a hidden field that will have its value populated dynamically by the widget. We'll store
     // the value (and potential value2) within the element using this format: YYYY-MM-DD HH:MM:SS|YYYY-MM-DD HH:MM:SS
@@ -25,7 +25,8 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     var d = new Date();
     d.setMinutes(_date_minute_increment_adjust(increment, d.getMinutes()));
 
-    var date_values_set = _date_widget_check_and_set_defaults(items, delta, instance);
+    // Check and set default values, and items[delta] values.
+    var date_values_set = _date_widget_check_and_set_defaults(items, delta, instance, d);
     var value_set =  date_values_set.value_set;
     var value2_set =  date_values_set.value2_set;
 
@@ -41,11 +42,6 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     // Grab the current date.
     var date = new Date();
 
-    // Grab the item date, if it is set.
-    //var item_date = null;
-    //var item_date2 = null;
-    //if (value_set) { item_date = new Date(items[delta].value); }
-    //if (value2_set) { item_date2 = new Date(items[delta].value2); }
 
     // Depending if we are collecting an end date or not, build a widget for each date value.
     var values = ['value'];
@@ -53,16 +49,22 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     $.each(values, function(_index, _value) {
 
       // Get the item date and offset, if any.
-      var date_and_offset = _date_get_item_and_offset(items, delta, _value, value_set, value2_set);
+      var date_and_offset = _date_get_item_and_offset(items, delta, _value, value_set, value2_set, field);
       var item_date = date_and_offset.item_date;
       var offset = date_and_offset.offset;
+      //var timezone = date_and_offset.timezone ? date_and_offset.timezone : null;
+      //var timezone_db = date_and_offset.timezone_db ? date_and_offset.timezone_db : null;
+
+      //if (timezone && offset) {
+      //  var difference = drupalgap.time_zones[timezone] - offset;
+      //}
 
       // Are we doing a 12 or 24 hour format?
       var military = date_military(instance);
 
-      // For each grain of the granularity, add a child for each. As we build the
-      // children widgets we'll set them aside one by one that way we can present
-      // the inputs in a desirable order.
+      // For each grain of the granularity, add it as a child to the form element. As we
+      // build the child widgets we'll set them aside one by one that way we can present
+      // the inputs in a desirable order later at render time.
       var _widget_year = null;
       var _widget_month = null;
       var _widget_day = null;
@@ -104,13 +106,17 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
             case 'hour':
               _widget_hour = _date_grain_widget_hour(date, instance, attributes, value_set, value2_set, item_date, military);
 
-              // Add an am/pm selector if we're not in military time.
+              // Add an am/pm selector if we're not in military time. Hang onto the old value so we
+              // can prevent the +/- 12 adjustment from happening if the user selects the same
+              // thing twice.
               if (!military) {
+                var onclick = attributes.onchange.replace(grain, 'ampm') +
+                    '; this.date_ampm_old_value = this.value;';
                 _widget_ampm = {
                   type: 'select',
                   attributes: {
                     id: attributes.id.replace(grain, 'ampm'),
-                    onclick: attributes.onchange.replace(grain, 'ampm')
+                    onclick: onclick
                   },
                   value: parseInt(item_date.getHours()) < 12 ? 'am' : 'pm',
                   options: {
@@ -156,8 +162,9 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
     // If the field base is configured for the "date's timezone handling", add a timezone picker to the widget.
     if (date_tz_handling_is_date(field)) {
+
       var tz_options = {};
-      $.each(drupalgap.time_zones, function(i, tz) { tz_options[tz] = tz; });
+      $.each(drupalgap.time_zones, function(tz, _offset) { tz_options[tz] = tz; });
       var _widget_tz_handling = {
         type: 'select',
         options: tz_options,
@@ -179,13 +186,4 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
   catch (error) {
     console.log('date_field_widget_form - ' + error);
   }
-}
-
-/**
- * Given a date field base, this will return true if its time zone handling is set to date.
- * @param field
- * @returns {*|boolean}
- */
-function date_tz_handling_is_date(field) {
-  return field.settings.tz_handling && field.settings.tz_handling == 'date' && drupalgap.time_zones;
 }
