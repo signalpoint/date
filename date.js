@@ -123,7 +123,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     // on this item, otherwise the DG FAPI will default it to the item's value, which is only the first part of the
     // date.
     if (value2_set && items[delta].value.indexOf('|') == -1) {
-      items[delta].value += '|' + items[delta].item.value2;
+      items[delta].value += '|' + items[delta].value2;
       if (!items[delta].attributes) { items[delta].attributes = {}; }
       items[delta].attributes.value = items[delta].value;
     }
@@ -922,6 +922,7 @@ function _date_widget_check_and_set_defaults(items, delta, instance, d) {
           var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
           items[delta].value = now;
           items[delta].default_value = now;
+          value_set = true;
           break;
         case 'blank':
           items[delta].value = '';
@@ -931,13 +932,18 @@ function _date_widget_check_and_set_defaults(items, delta, instance, d) {
           console.log('WARNING: date_field_widget_form() - unsupported default value: ' + items[delta].default_value);
           break;
       }
+      if (value_set) { // Spoof the item.
+        if (!items[delta].item) { items[delta].item = {}; }
+        items[delta].item.value = items[delta].value;
+      }
     }
     if (!value2_set && items[delta].default_value2 != '') {
       switch (items[delta].default_value2) {
         case 'now':
           var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
-          items[delta].value = now;
-          items[delta].default_value = now;
+          items[delta].value2 = now;
+          items[delta].default_value2 = now;
+          value2_set = true;
           break;
         case 'same':
           var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
@@ -947,6 +953,7 @@ function _date_widget_check_and_set_defaults(items, delta, instance, d) {
           items[delta].value += items[delta].value2;
           if (!empty(items[delta].default_value)) { items[delta].default_value += '|'; }
           items[delta].default_value += items[delta].default_value2;
+          value2_set = true;
           break;
         case 'blank':
           items[delta].value2 = '';
@@ -955,6 +962,10 @@ function _date_widget_check_and_set_defaults(items, delta, instance, d) {
         default:
           console.log('WARNING: date_field_widget_form() - unsupported default value 2: ' + items[delta].default_value2);
           break;
+      }
+      if (value2_set) { // Spoof the item.
+        if (!items[delta].item) { items[delta].item = {}; }
+        items[delta].item.value2 = items[delta].value2;
       }
     }
     return {
@@ -981,7 +992,7 @@ function date_services_request_pre_postprocess_alter(options, result) {
 function date_assemble_form_state_into_field(entity_type, bundle, form_state_value, field, instance, langcode, delta, field_key, form) {
   try {
 
-    console.log('assemble', arguments);
+    //console.log('assemble', arguments);
 
     field_key.use_delta = false;
 
@@ -1082,7 +1093,7 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
 
     });
 
-    console.log('RESULT', result);
+    //console.log('RESULT', result);
 
     return result;
   }
