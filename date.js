@@ -201,13 +201,15 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               if (!military) {
                 var onclick = attributes.onchange.replace(grain, 'ampm') +
                     '; this.date_ampm_old_value = this.value;';
+                var ampm_value =  parseInt(item_date.getHours()) < 12 ? 'am' : 'pm';
                 _widget_ampm = {
                   type: 'select',
                   attributes: {
                     id: attributes.id.replace(grain, 'ampm'),
-                    onclick: onclick
+                    onclick: onclick,
+                    date_ampm_original_value: ampm_value
                   },
-                  value: parseInt(item_date.getHours()) < 12 ? 'am' : 'pm',
+                  value: ampm_value,
                   options: {
                     am: 'am',
                     pm: 'pm'
@@ -669,12 +671,22 @@ function date_select_onchange(input, id, grain, military, increment, offset) {
         date.setMinutes(input_val);
         break;
       case 'ampm':
-        if (input.date_ampm_old_value == input_val) { return; } // Stop if they picked the same val twice.
+
+        // Stop if they picked the same val twice.
+        if (input.date_ampm_old_value == input_val ||
+          (
+            typeof input.date_ampm_old_value === 'undefined' &&
+            $(input).attr('date_ampm_original_value') == input_val
+          )
+        ) { return; }
+
+        // Adjust the hours by +/- 12 as needed.
         if (input_val == 'pm') {
           if (date.getHours() < 12) { date.setHours(date.getHours() + 12); }
           else { date.setHours(date.getHours()); }
         }
         else if (input_val == 'am') { date.setHours(date.getHours() - 12); }
+
         break;
     }
 
