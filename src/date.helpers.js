@@ -62,7 +62,7 @@ function date_military(instance) {
 function date_select_onchange(input, id, grain, military, increment, offset) {
   try {
 
-    // @TODO - for Joe, we need the time zone offset placed here as well!
+    // @TODO - we may need the time zone offset placed here as well!
 
     // Are we setting a "to date"?
     var todate = $(input).attr('id').indexOf('value2') != -1 ? true : false;
@@ -80,7 +80,7 @@ function date_select_onchange(input, id, grain, military, increment, offset) {
     else { parts.push(current_val); }
 
     // Get the date for the current value, or just default to now.
-    console.log('parts before', parts);
+    //console.log('parts before', parts);
     var date = null;
     if (!current_val) { date = new Date(); }
     else {
@@ -110,10 +110,9 @@ function date_select_onchange(input, id, grain, military, increment, offset) {
       if (date_apple_device() && offset) { date = date_item_adjust_offset(date, offset); }
 
     }
-    console.log('parts after', parts);
+    //console.log('parts after', parts);
 
     var input_val = $(input).val();
-    console.log(grain);
     switch (grain) {
       case 'year':
         date.setYear(input_val);
@@ -166,15 +165,15 @@ function date_select_onchange(input, id, grain, military, increment, offset) {
     }
 
     // Adjust the minutes.
-    console.log('before', date);
+    //console.log('before', date);
     date.setMinutes(_date_minute_increment_adjust(increment, date.getMinutes()));
-    console.log('after', date);
+    //console.log('after', date);
 
     // Finally set the value.
     var _value = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(date));
     if (!todate) { parts[0] = _value; }
     else { parts[1] = _value;  }
-    console.log('value', _value, date, parts);
+    //console.log('value', _value, date, parts);
     $('#' + id).val(parts.join('|'));
   }
   catch (error) { drupalgap_error(error); }
@@ -273,27 +272,56 @@ function date_item_adjust_offset(d, offset) {
   return new Date(d * 1000);
 }
 
-function _date_get_item_and_offset(items, delta, _value, value_set, value2_set) {
+/**
+ * Returns all the date time zone objects from system connect.
+ * @returns {Object}
+ */
+function date_time_zones() {
+  return drupalgap.time_zones;
+}
+
+/**
+ * Returns a specific date time zone object from system connect, or the site's default if none is provided.
+ * @param {String} timezone
+ * @returns {Object}
+ */
+function date_get_time_zone(timezone) {
+  if (timezone) { return date_time_zones()[timezone]; }
+  else { return date_time_zones()[date_site_time_zone_name()]; }
+}
+
+function date_site_time_zone_name() {
+  return drupalgap.site_settings.date_default_timezone;
+}
+
+/**
+ * Given a date field base, this will return true if its time zone handling is set to date.
+ * @param field
+ * @returns {*|boolean}
+ */
+function date_tz_handling_is_date(field) {
+  return field.settings.tz_handling && field.settings.tz_handling == 'date' && drupalgap.time_zones;
+}
+
+function _date_get_item_and_offset(items, delta, _value, value_set, value2_set, field) {
   try {
+
     // Grab the item date and offset, if they are set, otherwise grab the current date/time.
     var item_date = null;
     var offset = null;
     if (value_set && _value == 'value') {
       if (items[delta].value.indexOf('|') != -1) {
         var parts = items[delta].value.split('|');
-//          item_date = date_prepare(parts[0]);
         item_date = new Date(!date_apple_device() ? parts[0] : date_apple_cleanse(parts[0]));
       }
       else {
-//          item_date = date_prepare(items[delta].value);
         item_date = new Date(!date_apple_device() ? items[delta].value : date_apple_cleanse(items[delta].value));
       }
       if (items[delta].item && items[delta].item.offset) {
-        offset = items[delta].item.offset
+        offset = items[delta].item.offset;
       }
     }
     if (value2_set && _value == 'value2') {
-//        item_date = date_prepare(items[delta].item.value2);
       item_date = new Date(!date_apple_device() ? items[delta].item.value2 : date_apple_cleanse(items[delta].item.value2));
       if (items[delta].item && items[delta].item.offset2) {
         offset = items[delta].item.offset2;
@@ -306,17 +334,42 @@ function _date_get_item_and_offset(items, delta, _value, value_set, value2_set) 
       item_date = date_item_adjust_offset(item_date, offset);
     }
 
-    return {
+    // Build the result object.
+    var result = {
       item_date: item_date,
-      offset: offset
+      offset: offset,
+      timezone: null,
+      timezone_db: null
+    };
+
+    // If time zone handling is enabled on the date level and we have a value and an item date...
+    if (date_tz_handling_is_date(field) && (value_set || value2_set) && item_date) {
+
+      // Set aside the date and site timezones.
+      result.timezone = items[delta].item.timezone;
+      result.timezone_db = items[delta].item.timezone_db;
+
+      // Drupal delivers to us the value and value2 pre-rendered and adjusted for the site's time zone. Drupal also
+      // provides us with with the date item's time zone name and the date's time zone offset, we need to convert the
+      // item_date to the date's time zone, because at this point item_date has already been converted to the device's
+      // time zone. We do this by first subtracting off the site's timezone offset in milliseconds from the item date's
+      // milliseconds, then add the original item date's offset to this. Essentially convert to UTC, then convert to the
+      // time zone mentioned on the item's value.
+      var adjust = item_date.valueOf() - date_get_time_zone()*1000 + offset*1000;
+      item_date = new Date(adjust);
+      result.item_date = item_date;
+
     }
+
+    return result;
   }
   catch (error) { console.log('_date_get_item_and_offset', error); }
 }
 
-function _date_widget_check_and_set_defaults(items, delta, instance) {
+function _date_widget_check_and_set_defaults(items, delta, instance, d) {
   try {
-    // Determine if values have been set for this item.
+
+    // Determine if value and value_2 have been set for this item.
     var value_set = true;
     var value2_set = true;
     if (typeof items[delta].value === 'undefined' || items[delta].value == '') {
@@ -355,6 +408,11 @@ function _date_widget_check_and_set_defaults(items, delta, instance) {
     }
     if (!value2_set && items[delta].default_value2 != '') {
       switch (items[delta].default_value2) {
+        case 'now':
+          var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
+          items[delta].value = now;
+          items[delta].default_value = now;
+          break;
         case 'same':
           var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
           items[delta].value2 = now;
