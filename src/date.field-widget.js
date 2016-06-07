@@ -112,13 +112,15 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               if (!military) {
                 var onclick = attributes.onchange.replace(grain, 'ampm') +
                     '; this.date_ampm_old_value = this.value;';
+                var ampm_value =  parseInt(item_date.getHours()) < 12 ? 'am' : 'pm';
                 _widget_ampm = {
                   type: 'select',
                   attributes: {
                     id: attributes.id.replace(grain, 'ampm'),
-                    onclick: onclick
+                    onclick: onclick,
+                    date_ampm_original_value: ampm_value
                   },
-                  value: parseInt(item_date.getHours()) < 12 ? 'am' : 'pm',
+                  value: ampm_value,
                   options: {
                     am: 'am',
                     pm: 'pm'
