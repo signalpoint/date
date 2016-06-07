@@ -34,7 +34,7 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     // on this item, otherwise the DG FAPI will default it to the item's value, which is only the first part of the
     // date.
     if (value2_set && items[delta].value.indexOf('|') == -1) {
-      items[delta].value += '|' + items[delta].item.value2;
+      items[delta].value += '|' + items[delta].value2;
       if (!items[delta].attributes) { items[delta].attributes = {}; }
       items[delta].attributes.value = items[delta].value;
     }
