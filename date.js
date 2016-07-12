@@ -66,7 +66,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
 
           var from_day = date(format_day, d.getTime());
           var to_day = date(format_day, d2.getTime());
-
+          
           // get hour for 'To:' date
           var to_hour = date('g', d2.getTime());
 
@@ -77,10 +77,19 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
             var to_time = date(format_time, d2.getTime());
           }
 
+          // get hour for 'From:' date
+          var from_hour = date('g', d.getTime());
+          
+          if (from_hour == '0') {
+            var from_hour = '12' + date(':i a', d.getTime());;
+          } else {
+            var from_hour = date(format_time, d.getTime());
+          }
+
           if (from_day == to_day) {
 
             element[delta] = {
-              markup: '<div class="value">' + date(format_full, d.getTime()) + ' to ' + to_time + '</div>'
+              markup: '<div class="value">' + from_day + ' - ' + from_hour + ' to ' + to_time + '</div>'
             };
 
           } else {
