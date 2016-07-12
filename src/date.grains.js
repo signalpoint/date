@@ -1,3 +1,6 @@
+/**
+ *
+ */
 function _date_grain_widget_year(date, instance, attributes, value_set, value2_set, item_date) {
   try {
     // Determine the current year and the range of year(s) to provide
@@ -127,6 +130,29 @@ function _date_grain_widget_hour(date, instance, attributes, value_set, value2_s
   catch (error) { console.log('_date_grain_widget_hour', error); }
 }
 
+function _date_grain_widget_ampm(date, instance, attributes, value_set, value2_set, item_date, military) {
+  try {
+    
+    var ampm = parseInt(date.getHours()) < 12 ? 'am' : 'pm';
+    
+    if (value_set) {
+      ampm = parseInt(item_date.getHours()) < 12 ? 'am' : 'pm';
+    }
+    
+    return {
+      // prefix: theme('date_label', { title: t('AM/PM') }),
+      type: 'date_select',
+      value: ampm,
+      attributes: attributes,
+      options: {
+        am: 'am',
+        pm: 'pm'
+      } 
+    };
+  }
+  catch (error) { console.log('_date_grain_widget_day', error); }
+}
+
 function _date_grain_widget_minute(date, instance, attributes, value_set, value2_set, item_date, _value, increment) {
   try {
     // Determine the current minute.
@@ -236,4 +262,3 @@ function _date_grain_widgets_ux_wrap(items, delta, _widget_year, _widget_month, 
     if (ymd_grid) { items[delta].children.push({ markup: '</div>' }); }
   }
   catch (error) { console.log('_date_grain_widgets_ux_wrap', error); }
-}

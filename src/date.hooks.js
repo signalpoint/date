@@ -24,7 +24,7 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
     // Do we have an item?
     var have_item = typeof form.elements[field.field_name][langcode][delta].item !== 'undefined';
 
-    //console.log('BYE', form_state_value, field, instance);
+    // console.log('BYE', form_state_value, field, instance);
 
     // On iOS we must place a 'T' on the date.
     if (date_apple_device()) { form_state_value = date_apple_cleanse(form_state_value); }
@@ -44,7 +44,7 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
       if (todate_already_set) { parts = form_state_value.split('|'); }
       else { parts.push(form_state_value); }
 
-      //console.log('HELLO', form_state_value, parts, form_state_value);
+      // console.log('HELLO', form_state_value, parts, form_state_value);
 
       // Add timezone object to result, if necessary.
       if (date_tz_handling_is_date(field)) {
@@ -59,8 +59,9 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
 
         var date = null;
         if (_value == 'value') {
-          date = new Date(parts[0]);
+          // console.log('THE DATE before', date);
           if (have_item) {
+            // console.log('have_item', have_item);
             var offset = parseInt(form.elements[field.field_name][langcode][delta].item.offset);
             if (offset) { result.offset = offset; }
             if (date_apple_device() && offset) {
@@ -68,11 +69,33 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
               date = date.getTime() / 1000;
               date -= parseInt(offset);
               date = new Date(date * 1000);
+            } else if (date_apple_device()) {
+              // console.log('--- date_apple_device 1 ---');
+              date = new Date(date_apple_cleanse(parts[0]));
+              date = date.getTime() + (date.getTimezoneOffset() * 60000);
+              date = new Date(date);
+            } else {// 
+              date = new Date(parts[0]);
+            }
+          } else {
+            // console.log('does not have_item', have_item);
+            if (date_apple_device() && offset) {
+              date = new Date(date.toUTCString());
+              date = date.getTime() / 1000;
+              date -= parseInt(offset);
+              date = new Date(date * 1000);
+            } else if (date_apple_device()) {
+              // console.log('--- date_apple_device 2 ---');
+              date = new Date(date_apple_cleanse(parts[0]));
+              date = date.getTime() + (date.getTimezoneOffset() * 60000);
+              date = new Date(date);
+            } else {
+              date = new Date(parts[0]);
             }
           }
+          // console.log('THE DATE after', date);
         }
         else if (_value == 'value2') {
-          date = new Date(parts[1]);
           if (have_item) {
             var offset2 = parseInt(form.elements[field.field_name][langcode][delta].item.offset2);
             if (offset2) { result.offset2 = offset2; }
@@ -81,6 +104,25 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
               date = date.getTime() / 1000;
               date -= parseInt(offset2);
               date = new Date(date * 1000);
+            } else if (date_apple_device()) {
+              date = new Date(date_apple_cleanse(parts[1]));
+              date = date.getTime() + (date.getTimezoneOffset() * 60000);
+              date = new Date(date);
+            } else {
+              date = new Date(parts[1]);
+            }
+          } else {
+            if (date_apple_device() && offset2) {
+              date = new Date(date.toUTCString());
+              date = date.getTime() / 1000;
+              date -= parseInt(offset2);
+              date = new Date(date * 1000);
+            } else if (date_apple_device()) {
+              date = new Date(date_apple_cleanse(parts[1]));
+              date = date.getTime() + (date.getTimezoneOffset() * 60000);
+              date = new Date(date);
+            } else {
+              date = new Date(parts[1]);
             }
           }
         }
@@ -102,7 +144,10 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
                 if (result[_value].hour >= 12) {
                   result[_value].hour = result[_value].hour % 12;
                   result[_value].ampm = 'pm';
+                } else {
+                  result[_value].ampm = 'am';
                 }
+                if (result[_value].hour == 0) { result[_value].hour = 12; }
               }
               break;
             case 'minute':
@@ -115,7 +160,7 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
 
     });
 
-    //console.log('RESULT', result);
+    // console.log('RESULT', result);
 
     return result;
   }

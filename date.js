@@ -47,16 +47,67 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
       // Now iterate over the items and render them using the format.
       // @TODO might need to do the "T" stuff for iOS and/or Safari
       $.each(items, function(delta, item) {
-        var value2_present = typeof item.value2 !== 'undefined' ? true: false;
-        var label = value2_present ? 'From: ' : '';
+
+        // prepare date formats
+        var format_full = 'D, j F Y - g:i a';
+        var format_day = 'D, j F Y';
+        var format_time = 'g:i a';
+
+        // prepare 'From:' date value
         var d = date_prepare(item.value);
-        element[delta] = {
-          markup: '<div class="value">' + label + date(format, d.getTime()) + '</div>'
-        };
+
+        // check to see if there is a 'To:' date
+        var value2_present = typeof item.value2 !== 'undefined' ? true: false;
+
         if (value2_present) {
+
+          // prepare 'To:' date value
           var d2 = date_prepare(item.value2);
-          element[delta].markup += '<div class="value2">To: ' + date(format, d2.getTime()) + '</div>';
+
+          var from_day = date(format_day, d.getTime());
+          var to_day = date(format_day, d2.getTime());
+          
+          // get hour for 'To:' date
+          var to_hour = date('g', d2.getTime());
+
+          // correct the 0 hour to 12 for 12pm
+          if (to_hour == '0') {
+            var to_time = '12' + date(':i a', d2.getTime());;
+          } else {
+            var to_time = date(format_time, d2.getTime());
+          }
+
+          // get hour for 'From:' date
+          var from_hour = date('g', d.getTime());
+          
+          if (from_hour == '0') {
+            var from_hour = '12' + date(':i a', d.getTime());;
+          } else {
+            var from_hour = date(format_time, d.getTime());
+          }
+
+          if (from_day == to_day) {
+
+            element[delta] = {
+              markup: '<div class="value">' + from_day + ' - ' + from_hour + ' to ' + to_time + '</div>'
+            };
+
+          } else {
+
+            var label = value2_present ? 'From: ' : '';
+            element[delta] = {
+              markup: '<div class="value">' + label + date(format_full, d.getTime()) + '</div>'
+            };
+            element[delta].markup += '<div class="value2">To: ' + date(format_full, d2.getTime()) + '</div>';
+
+          }
+
+        } else {
+          element[delta] = {
+            markup: '<div class="value">' + label + date(format_full, d.getTime()) + '</div>'
+          };
         }
+
       });
 
     }
@@ -123,14 +174,21 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     // on this item, otherwise the DG FAPI will default it to the item's value, which is only the first part of the
     // date.
     if (value2_set && items[delta].value.indexOf('|') == -1) {
-      items[delta].value += '|' + items[delta].value2;
+      items[delta].value += '|' + items[delta].item.value2;
       if (!items[delta].attributes) { items[delta].attributes = {}; }
       items[delta].attributes.value = items[delta].value;
     }
 
     // Grab the current date.
-    var date = new Date();
-
+    if (date_apple_device()) {
+      // console.log('--- APPLE DEVICE --- (Grab the current date)');
+      var date = new Date();
+      var date = date.getTime() + (date.getTimezoneOffset() * 60000);
+      var date = new Date(date);
+    } else {
+      // console.log('--- NON APPLE DEVICE --- (Grab the current date)');
+      var date = new Date();
+    }
 
     // Depending if we are collecting an end date or not, build a widget for each date value.
     var values = ['value'];
@@ -195,26 +253,9 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
             case 'hour':
               _widget_hour = _date_grain_widget_hour(date, instance, attributes, value_set, value2_set, item_date, military);
 
-              // Add an am/pm selector if we're not in military time. Hang onto the old value so we
-              // can prevent the +/- 12 adjustment from happening if the user selects the same
-              // thing twice.
+              // Add an am/pm selector if we're not in military time.
               if (!military) {
-                var onclick = attributes.onchange.replace(grain, 'ampm') +
-                    '; this.date_ampm_old_value = this.value;';
-                var ampm_value =  parseInt(item_date.getHours()) < 12 ? 'am' : 'pm';
-                _widget_ampm = {
-                  type: 'select',
-                  attributes: {
-                    id: attributes.id.replace(grain, 'ampm'),
-                    onclick: onclick,
-                    date_ampm_original_value: ampm_value
-                  },
-                  value: ampm_value,
-                  options: {
-                    am: 'am',
-                    pm: 'pm'
-                  }
-                };
+                _widget_ampm = _date_grain_widget_ampm(date, instance, attributes, value_set, value2_set, item_date, military);
               }
               break;
 
@@ -414,6 +455,29 @@ function _date_grain_widget_hour(date, instance, attributes, value_set, value2_s
   catch (error) { console.log('_date_grain_widget_hour', error); }
 }
 
+function _date_grain_widget_ampm(date, instance, attributes, value_set, value2_set, item_date, military) {
+  try {
+    
+    var ampm = parseInt(date.getHours()) < 12 ? 'am' : 'pm';
+    
+    if (value_set) {
+      ampm = parseInt(item_date.getHours()) < 12 ? 'am' : 'pm';
+    }
+    
+    return {
+      // prefix: theme('date_label', { title: t('AM/PM') }),
+      type: 'date_select',
+      value: ampm,
+      attributes: attributes,
+      options: {
+        am: 'am',
+        pm: 'pm'
+      } 
+    };
+  }
+  catch (error) { console.log('_date_grain_widget_day', error); }
+}
+
 function _date_grain_widget_minute(date, instance, attributes, value_set, value2_set, item_date, _value, increment) {
   try {
     // Determine the current minute.
@@ -588,6 +652,8 @@ function date_military(instance) {
 function date_select_onchange(input, id, grain, military, increment, offset) {
   try {
 
+    // console.log('--- date_select_onchange --- function called ---');
+  
     // @TODO - we may need the time zone offset placed here as well!
 
     // Are we setting a "to date"?
@@ -596,6 +662,7 @@ function date_select_onchange(input, id, grain, military, increment, offset) {
     // Grab the current value (which may include both the "from" and "to" dates
     // separated by a pipe '|')
     var current_val = $('#' + id).val();
+    // console.log('current_val', current_val);
 
     // Is there a "to date" already set on the current value?
     var todate_already_set = current_val.indexOf('|') != -1 ? true : false;
@@ -606,37 +673,65 @@ function date_select_onchange(input, id, grain, military, increment, offset) {
     else { parts.push(current_val); }
 
     // Get the date for the current value, or just default to now.
-    //console.log('parts before', parts);
+    
+    // console.log('parts before', parts);
+    
     var date = null;
-    if (!current_val) { date = new Date(); }
-    else {
+    if (!current_val) {
+      // console.log('--- CURRENT VALUE NOT SET ---');
+
+
+      if (date_apple_device()) {
+        // console.log('--- APPLE DEVICE ---');
+        item_date = new Date();
+        item_date = item_date.getTime() + (item_date.getTimezoneOffset() * 60000);
+        date = new Date(item_date);
+      } else {
+        // console.log('--- NON APPLE DEVICE ---');
+        date = new Date();
+      }
+
+    } else {
 
       // In case they set the "to date" before the "from date", give the "from date" a default value.
       if (!todate && empty(parts[0])) { parts[0] = date_yyyy_mm_dd_hh_mm_ss(); }
 
-      //Fixes iOS bug spaces must be replaced with T's
-      if (date_apple_device()) {
 
+      if (date_apple_device() && offset) {
+
+        // TODO  -- update to reflect code below
+        date = date_item_adjust_offset(date, offset);
+
+      } else if (date_apple_device()) {
+        // console.log('--- APPLE DEVICE ---');
         if (!todate) {
-          parts[0] = date_apple_cleanse(parts[0]);
+          item_date = new Date(date_apple_cleanse(parts[0]));
+          item_date = item_date.getTime() + (item_date.getTimezoneOffset() * 60000);
+          date = new Date(item_date);
         }
         else {
           if (todate_already_set) {
-            parts[1] = date_apple_cleanse(parts[1]);
+          item_date = new Date(date_apple_cleanse(parts[1]));
+          item_date = item_date.getTime() + (item_date.getTimezoneOffset() * 60000);
+          date = new Date(item_date);
           }
         }
+      } else {
+        if (!todate) { 
+          date = new Date(parts[0]);
+        } else {
+          if (todate_already_set) {
+            date = new Date(parts[1]);
+          } else {
+            date = new Date();
+          }
+        }
+
       }
-
-      if (!todate) { date = new Date(parts[0]); }
-      else {
-        if (todate_already_set) { date = new Date(parts[1]); }
-        else { date = new Date(); }
-      }
-
-      if (date_apple_device() && offset) { date = date_item_adjust_offset(date, offset); }
-
+      
     }
-    //console.log('parts after', parts);
+    
+    // console.log('parts after', parts);
 
     var input_val = $(input).val();
     switch (grain) {
@@ -651,42 +746,35 @@ function date_select_onchange(input, id, grain, military, increment, offset) {
         break;
       case 'hour':
         if (!military) {
-          input_val = parseInt(input_val);
-          var ampm_input = $('#' + $(input).attr('id').replace(grain, 'ampm'));
-          var ampm_input_value = $(ampm_input).val();
-          switch (ampm_input_value) {
-            case 'am':
-              if (input_val == 12) { input_val = 0; }
-              date.setHours(input_val);
-              break;
-            case 'pm':
-              if (input_val == 12) { input_val = 0; }
-              date.setHours(input_val + 12);
-              break;
+          
+          var currenthour = date.getHours();
+          // console.log('input_val', input_val);
+          // console.log('date.getHours() BEFORE', date.getHours());
+          // console.log('currenthour', currenthour);
+          
+          if (input_val == 'pm') {
+            if (date.getHours() < 12) { date.setHours(date.getHours() + 12); }
+            else { date.setHours(date.getHours()); }
           }
+          else if (input_val == 'am') { date.setHours(date.getHours() - 12); }
+          
+          input_val = parseInt(input_val);
+          if (input_val >= 0 && currenthour > 12) {
+            date.setHours(input_val + 12);
+          } else if (input_val >= 0 && currenthour < 12) {
+            date.setHours(input_val);
+          } else if (input_val >= 0 && currenthour == 12) {
+            date.setHours(0);
+          }
+          
         }
         else { date.setHours(input_val); }
+        
+        // console.log('date.getHours() AFTER', date.getHours());
+        
         break;
       case 'minute':
         date.setMinutes(input_val);
-        break;
-      case 'ampm':
-
-        // Stop if they picked the same val twice.
-        if (input.date_ampm_old_value == input_val ||
-          (
-            typeof input.date_ampm_old_value === 'undefined' &&
-            $(input).attr('date_ampm_original_value') == input_val
-          )
-        ) { return; }
-
-        // Adjust the hours by +/- 12 as needed.
-        if (input_val == 'pm') {
-          if (date.getHours() < 12) { date.setHours(date.getHours() + 12); }
-          else { date.setHours(date.getHours()); }
-        }
-        else if (input_val == 'am') { date.setHours(date.getHours() - 12); }
-
         break;
     }
 
@@ -831,6 +919,8 @@ function date_tz_handling_is_date(field) {
 
 function _date_get_item_and_offset(items, delta, _value, value_set, value2_set, field) {
   try {
+    
+    console.log('--- function - _date_get_item_and_offset ---');
 
     // Grab the item date and offset, if they are set, otherwise grab the current date/time.
     var item_date = null;
@@ -838,17 +928,35 @@ function _date_get_item_and_offset(items, delta, _value, value_set, value2_set, 
     if (value_set && _value == 'value') {
       if (items[delta].value.indexOf('|') != -1) {
         var parts = items[delta].value.split('|');
-        item_date = new Date(!date_apple_device() ? parts[0] : date_apple_cleanse(parts[0]));
+        if(!date_apple_device()){
+          item_date = new Date(parts[0]);
+        } else {
+          item_date = new Date(date_apple_cleanse(parts[0]));
+          item_date = item_date.getTime() + (item_date.getTimezoneOffset() * 60000);
+          item_date = new Date(item_date);
+        }
       }
       else {
-        item_date = new Date(!date_apple_device() ? items[delta].value : date_apple_cleanse(items[delta].value));
+        if(!date_apple_device()){
+          item_date = new Date(items[delta].value);
+        } else {
+          item_date = new Date(date_apple_cleanse(items[delta].value));
+          item_date = item_date.getTime() + (item_date.getTimezoneOffset() * 60000);
+          item_date = new Date(item_date);
+        }
       }
       if (items[delta].item && items[delta].item.offset) {
         offset = items[delta].item.offset;
       }
     }
     if (value2_set && _value == 'value2') {
-      item_date = new Date(!date_apple_device() ? items[delta].item.value2 : date_apple_cleanse(items[delta].item.value2));
+      if(!date_apple_device()){
+        item_date = new Date(items[delta].item.value2);
+      } else {
+        item_date = new Date(date_apple_cleanse(items[delta].item.value2));
+        item_date = item_date.getTime() + (item_date.getTimezoneOffset() * 60000);
+        item_date = new Date(item_date);
+      }
       if (items[delta].item && items[delta].item.offset2) {
         offset = items[delta].item.offset2;
       }
@@ -1002,7 +1110,7 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
     // Do we have an item?
     var have_item = typeof form.elements[field.field_name][langcode][delta].item !== 'undefined';
 
-    //console.log('BYE', form_state_value, field, instance);
+    // console.log('BYE', form_state_value, field, instance);
 
     // On iOS we must place a 'T' on the date.
     if (date_apple_device()) { form_state_value = date_apple_cleanse(form_state_value); }
@@ -1022,7 +1130,7 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
       if (todate_already_set) { parts = form_state_value.split('|'); }
       else { parts.push(form_state_value); }
 
-      //console.log('HELLO', form_state_value, parts, form_state_value);
+      // console.log('HELLO', form_state_value, parts, form_state_value);
 
       // Add timezone object to result, if necessary.
       if (date_tz_handling_is_date(field)) {
@@ -1037,8 +1145,9 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
 
         var date = null;
         if (_value == 'value') {
-          date = new Date(parts[0]);
+          // console.log('THE DATE before', date);
           if (have_item) {
+            // console.log('have_item', have_item);
             var offset = parseInt(form.elements[field.field_name][langcode][delta].item.offset);
             if (offset) { result.offset = offset; }
             if (date_apple_device() && offset) {
@@ -1046,11 +1155,33 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
               date = date.getTime() / 1000;
               date -= parseInt(offset);
               date = new Date(date * 1000);
+            } else if (date_apple_device()) {
+              // console.log('--- date_apple_device 1 ---');
+              date = new Date(date_apple_cleanse(parts[0]));
+              date = date.getTime() + (date.getTimezoneOffset() * 60000);
+              date = new Date(date);
+            } else {// 
+              date = new Date(parts[0]);
+            }
+          } else {
+            // console.log('does not have_item', have_item);
+            if (date_apple_device() && offset) {
+              date = new Date(date.toUTCString());
+              date = date.getTime() / 1000;
+              date -= parseInt(offset);
+              date = new Date(date * 1000);
+            } else if (date_apple_device()) {
+              // console.log('--- date_apple_device 2 ---');
+              date = new Date(date_apple_cleanse(parts[0]));
+              date = date.getTime() + (date.getTimezoneOffset() * 60000);
+              date = new Date(date);
+            } else {
+              date = new Date(parts[0]);
             }
           }
+          // console.log('THE DATE after', date);
         }
         else if (_value == 'value2') {
-          date = new Date(parts[1]);
           if (have_item) {
             var offset2 = parseInt(form.elements[field.field_name][langcode][delta].item.offset2);
             if (offset2) { result.offset2 = offset2; }
@@ -1059,6 +1190,25 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
               date = date.getTime() / 1000;
               date -= parseInt(offset2);
               date = new Date(date * 1000);
+            } else if (date_apple_device()) {
+              date = new Date(date_apple_cleanse(parts[1]));
+              date = date.getTime() + (date.getTimezoneOffset() * 60000);
+              date = new Date(date);
+            } else {
+              date = new Date(parts[1]);
+            }
+          } else {
+            if (date_apple_device() && offset2) {
+              date = new Date(date.toUTCString());
+              date = date.getTime() / 1000;
+              date -= parseInt(offset2);
+              date = new Date(date * 1000);
+            } else if (date_apple_device()) {
+              date = new Date(date_apple_cleanse(parts[1]));
+              date = date.getTime() + (date.getTimezoneOffset() * 60000);
+              date = new Date(date);
+            } else {
+              date = new Date(parts[1]);
             }
           }
         }
@@ -1080,7 +1230,10 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
                 if (result[_value].hour >= 12) {
                   result[_value].hour = result[_value].hour % 12;
                   result[_value].ampm = 'pm';
+                } else {
+                  result[_value].ampm = 'am';
                 }
+                if (result[_value].hour == 0) { result[_value].hour = 12; }
               }
               break;
             case 'minute':
@@ -1093,7 +1246,7 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
 
     });
 
-    //console.log('RESULT', result);
+    // console.log('RESULT', result);
 
     return result;
   }
