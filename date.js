@@ -7,7 +7,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
     //console.log(field);
     //console.log(instance);
     //console.log(display);
-    //console.log('ITEMS', items);
+    console.log('ITEMS', items);
     //console.log('date_formats', drupalgap.date_formats);
     //console.log('date_types', drupalgap.date_types);
 
@@ -50,11 +50,13 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
         var value2_present = typeof item.value2 !== 'undefined' ? true: false;
         var label = value2_present ? 'From: ' : '';
         var d = date_prepare(item.value);
+        console.log('d', d);
         element[delta] = {
           markup: '<div class="value">' + label + date(format, d.getTime()) + '</div>'
         };
         if (value2_present) {
           var d2 = date_prepare(item.value2);
+          console.log('d2', d2);
           element[delta].markup += '<div class="value2">To: ' + date(format, d2.getTime()) + '</div>';
         }
       });
@@ -95,12 +97,12 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
     //console.log(form);
     //console.log(form_state);
-    //console.log(field);
-    //console.log(instance);
+    console.log(field);
+    console.log(instance);
     //console.log(langcode);
-    //console.log(items);
+    console.log(items);
     //console.log(delta);
-    //console.log(element);
+    console.log(element);
 
     // Convert the item into a hidden field that will have its value populated dynamically by the widget. We'll store
     // the value (and potential value2) within the element using this format: YYYY-MM-DD HH:MM:SS|YYYY-MM-DD HH:MM:SS
@@ -114,16 +116,69 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     var d = new Date();
     d.setMinutes(_date_minute_increment_adjust(increment, d.getMinutes()));
 
-    // Check and set default values, and items[delta] values.
-    var date_values_set = _date_widget_check_and_set_defaults(items, delta, instance, d);
-    var value_set =  date_values_set.value_set;
-    var value2_set =  date_values_set.value2_set;
+    // Determine if values have been set for this item.
+    var value_set = true;
+    var value2_set = true;
+    if (typeof items[delta].value === 'undefined' || items[delta].value == '') {
+      value_set = false;
+    }
+    if (
+        typeof items[delta].item === 'undefined' ||
+        typeof items[delta].item.value2 === 'undefined' ||
+        items[delta].item.value2 == ''
+    ) { value2_set = false; }
+
+    // If the value isn't set, check if a default value is available.
+    if (!value_set && (items[delta].default_value == '' || !items[delta].default_value) && instance.settings.default_value != '') {
+      items[delta].default_value = instance.settings.default_value;
+    }
+    if (!value2_set && (items[delta].default_value2 == '' || !items[delta].default_value2) && instance.settings.default_value2 != '') {
+      items[delta].default_value2 = instance.settings.default_value2;
+    }
+
+    // If the value isn't set and we have a default value, let's set it.
+    if (!value_set && items[delta].default_value != '') {
+      switch (items[delta].default_value) {
+        case 'now':
+          var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
+          items[delta].value = now;
+          items[delta].default_value = now;
+          break;
+        case 'blank':
+          items[delta].value = '';
+          items[delta].default_value = '';
+          break;
+        default:
+          console.log('WARNING: date_field_widget_form() - unsupported default value: ' + items[delta].default_value);
+          break;
+      }
+    }
+    if (!value2_set && items[delta].default_value2 != '') {
+      switch (items[delta].default_value2) {
+        case 'same':
+          var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
+          items[delta].value2 = now;
+          items[delta].default_value2 = now;
+          if (!empty(items[delta].value)) { items[delta].value += '|'; }
+          items[delta].value += items[delta].value2;
+          if (!empty(items[delta].default_value)) { items[delta].default_value += '|'; }
+          items[delta].default_value += items[delta].default_value2;
+          break;
+        case 'blank':
+          items[delta].value2 = '';
+          items[delta].default_value2 = '';
+          break;
+        default:
+          console.log('WARNING: date_field_widget_form() - unsupported default value 2: ' + items[delta].default_value2);
+          break;
+      }
+    }
 
     // If we have a value2, append it to our hidden input's value and default value. We need to set the value attribute
     // on this item, otherwise the DG FAPI will default it to the item's value, which is only the first part of the
     // date.
     if (value2_set && items[delta].value.indexOf('|') == -1) {
-      items[delta].value += '|' + items[delta].value2;
+      items[delta].value += '|' + items[delta].item.value2;
       if (!items[delta].attributes) { items[delta].attributes = {}; }
       items[delta].attributes.value = items[delta].value;
     }
@@ -131,6 +186,11 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     // Grab the current date.
     var date = new Date();
 
+    // Grab the item date, if it is set.
+    //var item_date = null;
+    //var item_date2 = null;
+    //if (value_set) { item_date = new Date(items[delta].value); }
+    //if (value2_set) { item_date2 = new Date(items[delta].value2); }
 
     // Depending if we are collecting an end date or not, build a widget for each date value.
     var values = ['value'];
@@ -138,22 +198,16 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     $.each(values, function(_index, _value) {
 
       // Get the item date and offset, if any.
-      var date_and_offset = _date_get_item_and_offset(items, delta, _value, value_set, value2_set, field);
+      var date_and_offset = _date_get_item_and_offset(items, delta, _value, value_set, value2_set);
       var item_date = date_and_offset.item_date;
       var offset = date_and_offset.offset;
-      //var timezone = date_and_offset.timezone ? date_and_offset.timezone : null;
-      //var timezone_db = date_and_offset.timezone_db ? date_and_offset.timezone_db : null;
-
-      //if (timezone && offset) {
-      //  var difference = drupalgap.time_zones[timezone] - offset;
-      //}
 
       // Are we doing a 12 or 24 hour format?
       var military = date_military(instance);
 
-      // For each grain of the granularity, add it as a child to the form element. As we
-      // build the child widgets we'll set them aside one by one that way we can present
-      // the inputs in a desirable order later at render time.
+      // For each grain of the granularity, add a child for each. As we build the
+      // children widgets we'll set them aside one by one that way we can present
+      // the inputs in a desirable order.
       var _widget_year = null;
       var _widget_month = null;
       var _widget_day = null;
@@ -195,21 +249,15 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
             case 'hour':
               _widget_hour = _date_grain_widget_hour(date, instance, attributes, value_set, value2_set, item_date, military);
 
-              // Add an am/pm selector if we're not in military time. Hang onto the old value so we
-              // can prevent the +/- 12 adjustment from happening if the user selects the same
-              // thing twice.
+              // Add an am/pm selector if we're not in military time.
               if (!military) {
-                var onclick = attributes.onchange.replace(grain, 'ampm') +
-                    '; this.date_ampm_old_value = this.value;';
-                var ampm_value =  parseInt(item_date.getHours()) < 12 ? 'am' : 'pm';
                 _widget_ampm = {
                   type: 'select',
                   attributes: {
                     id: attributes.id.replace(grain, 'ampm'),
-                    onclick: onclick,
-                    date_ampm_original_value: ampm_value
+                    onclick: attributes.onchange.replace(grain, 'ampm')
                   },
-                  value: ampm_value,
+                  value: parseInt(item_date.getHours()) < 12 ? 'am' : 'pm',
                   options: {
                     am: 'am',
                     pm: 'pm'
@@ -253,9 +301,8 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
     // If the field base is configured for the "date's timezone handling", add a timezone picker to the widget.
     if (date_tz_handling_is_date(field)) {
-
       var tz_options = {};
-      $.each(drupalgap.time_zones, function(tz, _offset) { tz_options[tz] = tz; });
+      $.each(drupalgap.time_zones, function(i, tz) { tz_options[tz] = tz; });
       var _widget_tz_handling = {
         type: 'select',
         options: tz_options,
@@ -279,12 +326,15 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
   }
 }
 
-// When the date object comes into these functions, it is merely the current JavaScript Date object.
-
-
 /**
- *
+ * Given a date field base, this will return true if its time zone handling is set to date.
+ * @param field
+ * @returns {*|boolean}
  */
+function date_tz_handling_is_date(field) {
+  return field.settings.tz_handling && field.settings.tz_handling == 'date' && drupalgap.time_zones;
+}
+
 function _date_grain_widget_year(date, instance, attributes, value_set, value2_set, item_date) {
   try {
     // Determine the current year and the range of year(s) to provide
@@ -588,7 +638,7 @@ function date_military(instance) {
 function date_select_onchange(input, id, grain, military, increment, offset) {
   try {
 
-    // @TODO - we may need the time zone offset placed here as well!
+    // @TODO - for Joe, we need the time zone offset placed here as well!
 
     // Are we setting a "to date"?
     var todate = $(input).attr('id').indexOf('value2') != -1 ? true : false;
@@ -606,7 +656,7 @@ function date_select_onchange(input, id, grain, military, increment, offset) {
     else { parts.push(current_val); }
 
     // Get the date for the current value, or just default to now.
-    //console.log('parts before', parts);
+    console.log('parts before', parts);
     var date = null;
     if (!current_val) { date = new Date(); }
     else {
@@ -636,9 +686,10 @@ function date_select_onchange(input, id, grain, military, increment, offset) {
       if (date_apple_device() && offset) { date = date_item_adjust_offset(date, offset); }
 
     }
-    //console.log('parts after', parts);
+    console.log('parts after', parts);
 
     var input_val = $(input).val();
+    console.log(grain);
     switch (grain) {
       case 'year':
         date.setYear(input_val);
@@ -671,35 +722,24 @@ function date_select_onchange(input, id, grain, military, increment, offset) {
         date.setMinutes(input_val);
         break;
       case 'ampm':
-
-        // Stop if they picked the same val twice.
-        if (input.date_ampm_old_value == input_val ||
-          (
-            typeof input.date_ampm_old_value === 'undefined' &&
-            $(input).attr('date_ampm_original_value') == input_val
-          )
-        ) { return; }
-
-        // Adjust the hours by +/- 12 as needed.
         if (input_val == 'pm') {
           if (date.getHours() < 12) { date.setHours(date.getHours() + 12); }
           else { date.setHours(date.getHours()); }
         }
         else if (input_val == 'am') { date.setHours(date.getHours() - 12); }
-
         break;
     }
 
     // Adjust the minutes.
-    //console.log('before', date);
+    console.log('before', date);
     date.setMinutes(_date_minute_increment_adjust(increment, date.getMinutes()));
-    //console.log('after', date);
+    console.log('after', date);
 
     // Finally set the value.
     var _value = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(date));
     if (!todate) { parts[0] = _value; }
     else { parts[1] = _value;  }
-    //console.log('value', _value, date, parts);
+    console.log('value', _value, date, parts);
     $('#' + id).val(parts.join('|'));
   }
   catch (error) { drupalgap_error(error); }
@@ -798,56 +838,27 @@ function date_item_adjust_offset(d, offset) {
   return new Date(d * 1000);
 }
 
-/**
- * Returns all the date time zone objects from system connect.
- * @returns {Object}
- */
-function date_time_zones() {
-  return drupalgap.time_zones;
-}
-
-/**
- * Returns a specific date time zone object from system connect, or the site's default if none is provided.
- * @param {String} timezone
- * @returns {Object}
- */
-function date_get_time_zone(timezone) {
-  if (timezone) { return date_time_zones()[timezone]; }
-  else { return date_time_zones()[date_site_time_zone_name()]; }
-}
-
-function date_site_time_zone_name() {
-  return drupalgap.site_settings.date_default_timezone;
-}
-
-/**
- * Given a date field base, this will return true if its time zone handling is set to date.
- * @param field
- * @returns {*|boolean}
- */
-function date_tz_handling_is_date(field) {
-  return field.settings.tz_handling && field.settings.tz_handling == 'date' && drupalgap.time_zones;
-}
-
-function _date_get_item_and_offset(items, delta, _value, value_set, value2_set, field) {
+function _date_get_item_and_offset(items, delta, _value, value_set, value2_set) {
   try {
-
     // Grab the item date and offset, if they are set, otherwise grab the current date/time.
     var item_date = null;
     var offset = null;
     if (value_set && _value == 'value') {
       if (items[delta].value.indexOf('|') != -1) {
         var parts = items[delta].value.split('|');
+//          item_date = date_prepare(parts[0]);
         item_date = new Date(!date_apple_device() ? parts[0] : date_apple_cleanse(parts[0]));
       }
       else {
+//          item_date = date_prepare(items[delta].value);
         item_date = new Date(!date_apple_device() ? items[delta].value : date_apple_cleanse(items[delta].value));
       }
       if (items[delta].item && items[delta].item.offset) {
-        offset = items[delta].item.offset;
+        offset = items[delta].item.offset
       }
     }
     if (value2_set && _value == 'value2') {
+//        item_date = date_prepare(items[delta].item.value2);
       item_date = new Date(!date_apple_device() ? items[delta].item.value2 : date_apple_cleanse(items[delta].item.value2));
       if (items[delta].item && items[delta].item.offset2) {
         offset = items[delta].item.offset2;
@@ -860,120 +871,12 @@ function _date_get_item_and_offset(items, delta, _value, value_set, value2_set, 
       item_date = date_item_adjust_offset(item_date, offset);
     }
 
-    // Build the result object.
-    var result = {
+    return {
       item_date: item_date,
-      offset: offset,
-      timezone: null,
-      timezone_db: null
-    };
-
-    // If time zone handling is enabled on the date level and we have a value and an item date...
-    if (date_tz_handling_is_date(field) && (value_set || value2_set) && item_date) {
-
-      // Set aside the date and site timezones.
-      result.timezone = items[delta].item.timezone;
-      result.timezone_db = items[delta].item.timezone_db;
-
-      // Drupal delivers to us the value and value2 pre-rendered and adjusted for the site's time zone. Drupal also
-      // provides us with with the date item's time zone name and the date's time zone offset, we need to convert the
-      // item_date to the date's time zone, because at this point item_date has already been converted to the device's
-      // time zone. We do this by first subtracting off the site's timezone offset in milliseconds from the item date's
-      // milliseconds, then add the original item date's offset to this. Essentially convert to UTC, then convert to the
-      // time zone mentioned on the item's value.
-      var adjust = item_date.valueOf() - date_get_time_zone()*1000 + offset*1000;
-      item_date = new Date(adjust);
-      result.item_date = item_date;
-
+      offset: offset
     }
-
-    return result;
   }
   catch (error) { console.log('_date_get_item_and_offset', error); }
-}
-
-function _date_widget_check_and_set_defaults(items, delta, instance, d) {
-  try {
-
-    // Determine if value and value_2 have been set for this item.
-    var value_set = true;
-    var value2_set = true;
-    if (typeof items[delta].value === 'undefined' || items[delta].value == '') {
-      value_set = false;
-    }
-    if (
-        typeof items[delta].item === 'undefined' ||
-        typeof items[delta].item.value2 === 'undefined' ||
-        items[delta].item.value2 == ''
-    ) { value2_set = false; }
-
-    // If the value isn't set, check if a default value is available.
-    if (!value_set && (items[delta].default_value == '' || !items[delta].default_value) && instance.settings.default_value != '') {
-      items[delta].default_value = instance.settings.default_value;
-    }
-    if (!value2_set && (items[delta].default_value2 == '' || !items[delta].default_value2) && instance.settings.default_value2 != '') {
-      items[delta].default_value2 = instance.settings.default_value2;
-    }
-
-    // If the value isn't set and we have a default value, let's set it.
-    if (!value_set && items[delta].default_value != '') {
-      switch (items[delta].default_value) {
-        case 'now':
-          var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
-          items[delta].value = now;
-          items[delta].default_value = now;
-          value_set = true;
-          break;
-        case 'blank':
-          items[delta].value = '';
-          items[delta].default_value = '';
-          break;
-        default:
-          console.log('WARNING: date_field_widget_form() - unsupported default value: ' + items[delta].default_value);
-          break;
-      }
-      if (value_set) { // Spoof the item.
-        if (!items[delta].item) { items[delta].item = {}; }
-        items[delta].item.value = items[delta].value;
-      }
-    }
-    if (!value2_set && items[delta].default_value2 != '') {
-      switch (items[delta].default_value2) {
-        case 'now':
-          var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
-          items[delta].value2 = now;
-          items[delta].default_value2 = now;
-          value2_set = true;
-          break;
-        case 'same':
-          var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
-          items[delta].value2 = now;
-          items[delta].default_value2 = now;
-          if (!empty(items[delta].value)) { items[delta].value += '|'; }
-          items[delta].value += items[delta].value2;
-          if (!empty(items[delta].default_value)) { items[delta].default_value += '|'; }
-          items[delta].default_value += items[delta].default_value2;
-          value2_set = true;
-          break;
-        case 'blank':
-          items[delta].value2 = '';
-          items[delta].default_value2 = '';
-          break;
-        default:
-          console.log('WARNING: date_field_widget_form() - unsupported default value 2: ' + items[delta].default_value2);
-          break;
-      }
-      if (value2_set) { // Spoof the item.
-        if (!items[delta].item) { items[delta].item = {}; }
-        items[delta].item.value2 = items[delta].value2;
-      }
-    }
-    return {
-      value_set: value_set,
-      value2_set: value2_set
-    };
-  }
-  catch (error) { console.log('_date_widget_check_and_set_defaults', error); }
 }
 
 /**
@@ -992,15 +895,12 @@ function date_services_request_pre_postprocess_alter(options, result) {
 function date_assemble_form_state_into_field(entity_type, bundle, form_state_value, field, instance, langcode, delta, field_key, form) {
   try {
 
-    //console.log('assemble', arguments);
+    console.log('assemble', arguments);
 
     field_key.use_delta = false;
 
     // Grab our "to date" setting for the field.
     var todate = field.settings.todate;
-
-    // Do we have an item?
-    var have_item = typeof form.elements[field.field_name][langcode][delta].item !== 'undefined';
 
     //console.log('BYE', form_state_value, field, instance);
 
@@ -1038,28 +938,25 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
         var date = null;
         if (_value == 'value') {
           date = new Date(parts[0]);
-          if (have_item) {
-            var offset = parseInt(form.elements[field.field_name][langcode][delta].item.offset);
-            if (offset) { result.offset = offset; }
-            if (date_apple_device() && offset) {
-              date = new Date(date.toUTCString());
-              date = date.getTime() / 1000;
-              date -= parseInt(offset);
-              date = new Date(date * 1000);
-            }
+          var offset = parseInt(form.elements[field.field_name][langcode][delta].item.offset);
+          if (offset) { result.offset = offset; }
+          if (date_apple_device() && offset) {
+
+            date = new Date(date.toUTCString());
+            date = date.getTime() / 1000;
+            date -= parseInt(offset);
+            date = new Date(date * 1000);
           }
         }
         else if (_value == 'value2') {
           date = new Date(parts[1]);
-          if (have_item) {
-            var offset2 = parseInt(form.elements[field.field_name][langcode][delta].item.offset2);
-            if (offset2) { result.offset2 = offset2; }
-            if (date_apple_device() && offset2) {
-              date = new Date(date.toUTCString());
-              date = date.getTime() / 1000;
-              date -= parseInt(offset2);
-              date = new Date(date * 1000);
-            }
+          var offset2 = parseInt(form.elements[field.field_name][langcode][delta].item.offset2);
+          if (offset2) { result.offset2 = offset2; }
+          if (date_apple_device() && offset2) {
+            date = new Date(date.toUTCString());
+            date = date.getTime() / 1000;
+            date -= parseInt(offset2);
+            date = new Date(date * 1000);
           }
         }
 
@@ -1093,7 +990,7 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
 
     });
 
-    //console.log('RESULT', result);
+    console.log('RESULT', result);
 
     return result;
   }

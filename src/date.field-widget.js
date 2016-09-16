@@ -6,12 +6,12 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
     //console.log(form);
     //console.log(form_state);
-    //console.log(field);
-    //console.log(instance);
+    console.log(field);
+    console.log(instance);
     //console.log(langcode);
-    //console.log(items);
+    console.log(items);
     //console.log(delta);
-    //console.log(element);
+    console.log(element);
 
     // Convert the item into a hidden field that will have its value populated dynamically by the widget. We'll store
     // the value (and potential value2) within the element using this format: YYYY-MM-DD HH:MM:SS|YYYY-MM-DD HH:MM:SS
@@ -25,16 +25,69 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     var d = new Date();
     d.setMinutes(_date_minute_increment_adjust(increment, d.getMinutes()));
 
-    // Check and set default values, and items[delta] values.
-    var date_values_set = _date_widget_check_and_set_defaults(items, delta, instance, d);
-    var value_set =  date_values_set.value_set;
-    var value2_set =  date_values_set.value2_set;
+    // Determine if values have been set for this item.
+    var value_set = true;
+    var value2_set = true;
+    if (typeof items[delta].value === 'undefined' || items[delta].value == '') {
+      value_set = false;
+    }
+    if (
+        typeof items[delta].item === 'undefined' ||
+        typeof items[delta].item.value2 === 'undefined' ||
+        items[delta].item.value2 == ''
+    ) { value2_set = false; }
+
+    // If the value isn't set, check if a default value is available.
+    if (!value_set && (items[delta].default_value == '' || !items[delta].default_value) && instance.settings.default_value != '') {
+      items[delta].default_value = instance.settings.default_value;
+    }
+    if (!value2_set && (items[delta].default_value2 == '' || !items[delta].default_value2) && instance.settings.default_value2 != '') {
+      items[delta].default_value2 = instance.settings.default_value2;
+    }
+
+    // If the value isn't set and we have a default value, let's set it.
+    if (!value_set && items[delta].default_value != '') {
+      switch (items[delta].default_value) {
+        case 'now':
+          var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
+          items[delta].value = now;
+          items[delta].default_value = now;
+          break;
+        case 'blank':
+          items[delta].value = '';
+          items[delta].default_value = '';
+          break;
+        default:
+          console.log('WARNING: date_field_widget_form() - unsupported default value: ' + items[delta].default_value);
+          break;
+      }
+    }
+    if (!value2_set && items[delta].default_value2 != '') {
+      switch (items[delta].default_value2) {
+        case 'same':
+          var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
+          items[delta].value2 = now;
+          items[delta].default_value2 = now;
+          if (!empty(items[delta].value)) { items[delta].value += '|'; }
+          items[delta].value += items[delta].value2;
+          if (!empty(items[delta].default_value)) { items[delta].default_value += '|'; }
+          items[delta].default_value += items[delta].default_value2;
+          break;
+        case 'blank':
+          items[delta].value2 = '';
+          items[delta].default_value2 = '';
+          break;
+        default:
+          console.log('WARNING: date_field_widget_form() - unsupported default value 2: ' + items[delta].default_value2);
+          break;
+      }
+    }
 
     // If we have a value2, append it to our hidden input's value and default value. We need to set the value attribute
     // on this item, otherwise the DG FAPI will default it to the item's value, which is only the first part of the
     // date.
     if (value2_set && items[delta].value.indexOf('|') == -1) {
-      items[delta].value += '|' + items[delta].value2;
+      items[delta].value += '|' + items[delta].item.value2;
       if (!items[delta].attributes) { items[delta].attributes = {}; }
       items[delta].attributes.value = items[delta].value;
     }
@@ -42,6 +95,11 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     // Grab the current date.
     var date = new Date();
 
+    // Grab the item date, if it is set.
+    //var item_date = null;
+    //var item_date2 = null;
+    //if (value_set) { item_date = new Date(items[delta].value); }
+    //if (value2_set) { item_date2 = new Date(items[delta].value2); }
 
     // Depending if we are collecting an end date or not, build a widget for each date value.
     var values = ['value'];
@@ -49,22 +107,16 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
     $.each(values, function(_index, _value) {
 
       // Get the item date and offset, if any.
-      var date_and_offset = _date_get_item_and_offset(items, delta, _value, value_set, value2_set, field);
+      var date_and_offset = _date_get_item_and_offset(items, delta, _value, value_set, value2_set);
       var item_date = date_and_offset.item_date;
       var offset = date_and_offset.offset;
-      //var timezone = date_and_offset.timezone ? date_and_offset.timezone : null;
-      //var timezone_db = date_and_offset.timezone_db ? date_and_offset.timezone_db : null;
-
-      //if (timezone && offset) {
-      //  var difference = drupalgap.time_zones[timezone] - offset;
-      //}
 
       // Are we doing a 12 or 24 hour format?
       var military = date_military(instance);
 
-      // For each grain of the granularity, add it as a child to the form element. As we
-      // build the child widgets we'll set them aside one by one that way we can present
-      // the inputs in a desirable order later at render time.
+      // For each grain of the granularity, add a child for each. As we build the
+      // children widgets we'll set them aside one by one that way we can present
+      // the inputs in a desirable order.
       var _widget_year = null;
       var _widget_month = null;
       var _widget_day = null;
@@ -106,21 +158,15 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
             case 'hour':
               _widget_hour = _date_grain_widget_hour(date, instance, attributes, value_set, value2_set, item_date, military);
 
-              // Add an am/pm selector if we're not in military time. Hang onto the old value so we
-              // can prevent the +/- 12 adjustment from happening if the user selects the same
-              // thing twice.
+              // Add an am/pm selector if we're not in military time.
               if (!military) {
-                var onclick = attributes.onchange.replace(grain, 'ampm') +
-                    '; this.date_ampm_old_value = this.value;';
-                var ampm_value =  parseInt(item_date.getHours()) < 12 ? 'am' : 'pm';
                 _widget_ampm = {
                   type: 'select',
                   attributes: {
                     id: attributes.id.replace(grain, 'ampm'),
-                    onclick: onclick,
-                    date_ampm_original_value: ampm_value
+                    onclick: attributes.onchange.replace(grain, 'ampm')
                   },
-                  value: ampm_value,
+                  value: parseInt(item_date.getHours()) < 12 ? 'am' : 'pm',
                   options: {
                     am: 'am',
                     pm: 'pm'
@@ -164,9 +210,8 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
 
     // If the field base is configured for the "date's timezone handling", add a timezone picker to the widget.
     if (date_tz_handling_is_date(field)) {
-
       var tz_options = {};
-      $.each(drupalgap.time_zones, function(tz, _offset) { tz_options[tz] = tz; });
+      $.each(drupalgap.time_zones, function(i, tz) { tz_options[tz] = tz; });
       var _widget_tz_handling = {
         type: 'select',
         options: tz_options,
@@ -188,4 +233,13 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
   catch (error) {
     console.log('date_field_widget_form - ' + error);
   }
+}
+
+/**
+ * Given a date field base, this will return true if its time zone handling is set to date.
+ * @param field
+ * @returns {*|boolean}
+ */
+function date_tz_handling_is_date(field) {
+  return field.settings.tz_handling && field.settings.tz_handling == 'date' && drupalgap.time_zones;
 }
