@@ -57,10 +57,10 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
         var date = null;
         if (_value == 'value') {
           date = new Date(parts[0]);
-          var offset = parseInt(form.elements[field.field_name][langcode][delta].item.offset);
+          var offset = typeof form.elements[field.field_name][langcode][delta].offset !== 'undefined' ?
+              parseInt(form.elements[field.field_name][langcode][delta].offset) : -14400;
           if (offset) { result.offset = offset; }
           if (date_apple_device() && offset) {
-
             date = new Date(date.toUTCString());
             date = date.getTime() / 1000;
             date -= parseInt(offset);
@@ -69,7 +69,8 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
         }
         else if (_value == 'value2') {
           date = new Date(parts[1]);
-          var offset2 = parseInt(form.elements[field.field_name][langcode][delta].item.offset2);
+          var offset2 = typeof form.elements[field.field_name][langcode][delta].offset2 ?
+              parseInt(form.elements[field.field_name][langcode][delta].offset2) : -14400;
           if (offset2) { result.offset2 = offset2; }
           if (date_apple_device() && offset2) {
             date = new Date(date.toUTCString());
