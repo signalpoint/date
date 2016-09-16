@@ -34,7 +34,7 @@ function date_apple_device() {
  * Given a date string, this will cleanse it for use with JavaScript Date on an Apple device.
  */
 function date_apple_cleanse(input) {
-  return input.replace(/ /g, 'T');
+  return input.replace(/-/g, '\/');
 }
 
 /**
