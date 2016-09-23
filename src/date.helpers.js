@@ -107,7 +107,7 @@ function date_select_onchange(input, id, grain, military, increment, offset) {
         else { date = new Date(); }
       }
 
-      if (date_apple_device() && offset) { date = date_item_adjust_offset(date, offset); }
+      //if (date_apple_device() && offset) { date = date_item_adjust_offset(date, offset); }
 
     }
     //console.log('parts after', parts);
@@ -306,6 +306,8 @@ function date_tz_handling_is_date(field) {
 function _date_get_item_and_offset(items, delta, _value, value_set, value2_set, field) {
   try {
 
+    //console.log('_date_get_item_and_offset', arguments);
+
     // Grab the item date and offset, if they are set, otherwise grab the current date/time.
     var item_date = null;
     var offset = null;
@@ -315,24 +317,24 @@ function _date_get_item_and_offset(items, delta, _value, value_set, value2_set, 
         item_date = new Date(!date_apple_device() ? parts[0] : date_apple_cleanse(parts[0]));
       }
       else {
-        item_date = new Date(!date_apple_device() ? items[delta].value : date_apple_cleanse(items[delta].value));
+        item_date = new Date(!date_apple_device() ? items[delta].item.value : date_apple_cleanse(items[delta].item.value));
       }
-      if (items[delta].item && items[delta].item.offset) {
+      if (items[delta] && items[delta].item && items[delta].item.offset) {
         offset = items[delta].item.offset;
       }
     }
     if (value2_set && _value == 'value2') {
       item_date = new Date(!date_apple_device() ? items[delta].item.value2 : date_apple_cleanse(items[delta].item.value2));
-      if (items[delta].item && items[delta].item.offset2) {
+      if (items[delta] && items[delta].item && items[delta].item.offset2) {
         offset = items[delta].item.offset2;
       }
     }
     if (!value_set && !value2_set && !item_date) { item_date = new Date(); }
 
     // If we're on an Apple device, convert the date using the offset values from Drupal if there are any.
-    if (date_apple_device() && offset) {
-      item_date = date_item_adjust_offset(item_date, offset);
-    }
+    //if (date_apple_device() && offset) {
+    //  item_date = date_item_adjust_offset(item_date, offset);
+    //}
 
     // Build the result object.
     var result = {
@@ -346,8 +348,8 @@ function _date_get_item_and_offset(items, delta, _value, value_set, value2_set, 
     if (date_tz_handling_is_date(field) && (value_set || value2_set) && item_date) {
 
       // Set aside the date and site timezones.
-      result.timezone = items[delta].item.timezone;
-      result.timezone_db = items[delta].item.timezone_db;
+      result.timezone = items[delta].timezone;
+      result.timezone_db = items[delta].timezone_db;
 
       // Drupal delivers to us the value and value2 pre-rendered and adjusted for the site's time zone. Drupal also
       // provides us with with the date item's time zone name and the date's time zone offset, we need to convert the
@@ -355,7 +357,7 @@ function _date_get_item_and_offset(items, delta, _value, value_set, value2_set, 
       // time zone. We do this by first subtracting off the site's timezone offset in milliseconds from the item date's
       // milliseconds, then add the original item date's offset to this. Essentially convert to UTC, then convert to the
       // time zone mentioned on the item's value.
-      var adjust = item_date.valueOf() - date_get_time_zone()*1000 + offset*1000;
+      var adjust = item_date.valueOf() - date_get_time_zone()*1000/* + offset*1000*/;
       item_date = new Date(adjust);
       result.item_date = item_date;
 
@@ -368,13 +370,18 @@ function _date_get_item_and_offset(items, delta, _value, value_set, value2_set, 
 
 function _date_widget_check_and_set_defaults(items, delta, instance, d) {
   try {
+    //console.log('_date_widget_check_and_set_defaults', arguments);
+
+    // Spoof the item if it doesn't exist.
+    if (typeof items[delta].item === 'undefined') { items[delta].item = {}; }
 
     // Determine if value and value_2 have been set for this item.
     var value_set = true;
     var value2_set = true;
-    if (typeof items[delta].value === 'undefined' || items[delta].value == '') {
-      value_set = false;
-    }
+    if (
+        typeof items[delta].item.value === 'undefined' ||
+        items[delta].item.value == ''
+    ) { value_set = false; }
     if (
         typeof items[delta].item === 'undefined' ||
         typeof items[delta].item.value2 === 'undefined' ||
@@ -394,11 +401,13 @@ function _date_widget_check_and_set_defaults(items, delta, instance, d) {
       switch (items[delta].default_value) {
         case 'now':
           var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
+          items[delta].item.value = now;
           items[delta].value = now;
           items[delta].default_value = now;
           value_set = true;
           break;
         case 'blank':
+          items[delta].item.value = '';
           items[delta].value = '';
           items[delta].default_value = '';
           break;
@@ -406,30 +415,33 @@ function _date_widget_check_and_set_defaults(items, delta, instance, d) {
           console.log('WARNING: date_field_widget_form() - unsupported default value: ' + items[delta].default_value);
           break;
       }
-      if (value_set) { // Spoof the item.
-        if (!items[delta].item) { items[delta].item = {}; }
+      if (value_set) {
         items[delta].item.value = items[delta].value;
       }
     }
+
     if (!value2_set && items[delta].default_value2 != '') {
       switch (items[delta].default_value2) {
         case 'now':
           var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
+          items[delta].item.value2 = now;
           items[delta].value2 = now;
-          items[delta].default_value2 = now;
+          items[delta].default_value = now;
           value2_set = true;
           break;
         case 'same':
           var now = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(d));
+          items[delta].item.value2 = now;
           items[delta].value2 = now;
           items[delta].default_value2 = now;
-          if (!empty(items[delta].value)) { items[delta].value += '|'; }
-          items[delta].value += items[delta].value2;
+          if (!empty(items[delta].item.value)) { items[delta].item.value += '|'; }
+          items[delta].item.value += items[delta].item.value2;
           if (!empty(items[delta].default_value)) { items[delta].default_value += '|'; }
           items[delta].default_value += items[delta].default_value2;
           value2_set = true;
           break;
         case 'blank':
+          items[delta].item.value2 = '';
           items[delta].value2 = '';
           items[delta].default_value2 = '';
           break;
@@ -437,8 +449,8 @@ function _date_widget_check_and_set_defaults(items, delta, instance, d) {
           console.log('WARNING: date_field_widget_form() - unsupported default value 2: ' + items[delta].default_value2);
           break;
       }
-      if (value2_set) { // Spoof the item.
-        if (!items[delta].item) { items[delta].item = {}; }
+
+      if (value2_set) {
         items[delta].item.value2 = items[delta].value2;
       }
     }
