@@ -34,7 +34,7 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
       result[_value] = {};
 
       // Is there a "to date" already set on the current value?
-      var todate_already_set = form_state_value.indexOf('|') != -1 ? true : false;
+      var todate_already_set = form_state_value.indexOf('|') != -1;
 
       // Perpare the value part(s).
       var parts = [];
@@ -57,27 +57,27 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
         var date = null;
         if (_value == 'value') {
           date = new Date(parts[0]);
-          var offset = typeof form.elements[field.field_name][langcode][delta].offset !== 'undefined' ?
-              parseInt(form.elements[field.field_name][langcode][delta].offset) : -14400;
-          if (offset) { result.offset = offset; }
-          if (date_apple_device() && offset) {
-            date = new Date(date.toUTCString());
-            date = date.getTime() / 1000;
-            date -= parseInt(offset);
-            date = new Date(date * 1000);
-          }
+          //var offset = typeof form.elements[field.field_name][langcode][delta].item.offset !== 'undefined' ?
+          //    parseInt(form.elements[field.field_name][langcode][delta].item.offset) : -14400;
+          //if (offset) { result.offset = offset; }
+          //if (date_apple_device() && offset) {
+          //  date = new Date(date.toUTCString());
+          //  date = date.getTime() / 1000;
+          //  date -= parseInt(offset);
+          //  date = new Date(date * 1000);
+          //}
         }
         else if (_value == 'value2') {
           date = new Date(parts[1]);
-          var offset2 = typeof form.elements[field.field_name][langcode][delta].offset2 ?
-              parseInt(form.elements[field.field_name][langcode][delta].offset2) : -14400;
-          if (offset2) { result.offset2 = offset2; }
-          if (date_apple_device() && offset2) {
-            date = new Date(date.toUTCString());
-            date = date.getTime() / 1000;
-            date -= parseInt(offset2);
-            date = new Date(date * 1000);
-          }
+          //var offset2 = typeof form.elements[field.field_name][langcode][delta].item.offset2 ?
+          //    parseInt(form.elements[field.field_name][langcode][delta].item.offset2) : -14400;
+          //if (offset2) { result.offset2 = offset2; }
+          //if (date_apple_device() && offset2) {
+          //  date = new Date(date.toUTCString());
+          //  date = date.getTime() / 1000;
+          //  date -= parseInt(offset2);
+          //  date = new Date(date * 1000);
+          //}
         }
 
         if (value) {
@@ -95,8 +95,12 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
               result[_value].hour = parseInt(date.getHours());
               if (!date_military(instance)) {
                 if (result[_value].hour >= 12) {
-                  result[_value].hour = result[_value].hour % 12;
+                  if (result[_value].hour != 12) { result[_value].hour = result[_value].hour % 12; }
                   result[_value].ampm = 'pm';
+                }
+                else if (result[_value].hour < 12) {
+                  if (result[_value].hour == 0) { result[_value].hour = 12; }
+                  result[_value].ampm = 'am';
                 }
               }
               break;
