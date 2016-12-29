@@ -7,7 +7,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
     //console.log(field);
     //console.log(instance);
     //console.log(display);
-    //console.log('ITEMS', items);
+    //console.log(items);
     //console.log('date_formats', drupalgap.date_formats);
     //console.log('date_types', drupalgap.date_types);
 
@@ -86,7 +86,6 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
   }
   catch (error) { console.log('date_field_formatter_view - ' + error); }
 }
-
 /**
  * Implements hook_field_widget_form().
  */
@@ -279,12 +278,6 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
   }
 }
 
-// When the date object comes into these functions, it is merely the current JavaScript Date object.
-
-
-/**
- *
- */
 function _date_grain_widget_year(date, instance, attributes, value_set, value2_set, item_date) {
   try {
     // Determine the current year and the range of year(s) to provide
