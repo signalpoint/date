@@ -161,7 +161,28 @@ function _date_grain_widget_minute(date, instance, attributes, value_set, value2
 
 function _date_grain_widget_second(date, instance, attributes, value_set, item_date) {
   try {
+    // Determine the current second.
+    var second = parseInt(date.getSeconds());
 
+    // Build the options.
+    var options = {};
+    for (var i = 0; i <= 59; i ++) {
+      var text = '' + i;
+      if (text.length == 1) { text = '0' + text; }
+      options[i] = text;
+    }
+
+    // Parse the second from the item's value, if it is set.
+    if (value_set && _value == 'value') { second = parseInt(item_date.getSeconds()); }
+
+    // Build and theme the select list.
+    return {
+      prefix: theme('date_label', { title: t('Second') }),
+      type: 'date_select',
+      value: second,
+      attributes: attributes,
+      options: options
+    };
   }
   catch (error) { console.log('_date_grain_widget_second', error); }
 }
