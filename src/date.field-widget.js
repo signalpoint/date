@@ -134,6 +134,11 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               _widget_minute = _date_grain_widget_minute(date, instance, attributes, value_set, value2_set, item_date, _value, increment);
               break;
 
+            // SECOND
+            case 'second':
+              _widget_second = _date_grain_widget_second(date, instance, attributes, value_set, value2_set, item_date, _value);
+              break;
+
             default:
               console.log('WARNING: date_field_widget_form() - unsupported grain! (' + grain + ')');
               break;
