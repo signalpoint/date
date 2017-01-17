@@ -7,7 +7,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
     //console.log(field);
     //console.log(instance);
     //console.log(display);
-    //console.log('ITEMS', items);
+    //console.log(items);
     //console.log('date_formats', drupalgap.date_formats);
     //console.log('date_types', drupalgap.date_types);
 
@@ -86,7 +86,6 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
   }
   catch (error) { console.log('date_field_formatter_view - ' + error); }
 }
-
 /**
  * Implements hook_field_widget_form().
  */
@@ -223,6 +222,11 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
               _widget_minute = _date_grain_widget_minute(date, instance, attributes, value_set, value2_set, item_date, _value, increment);
               break;
 
+            // SECOND
+            case 'second':
+              _widget_second = _date_grain_widget_second(date, instance, attributes, value_set, value2_set, item_date, _value);
+              break;
+
             default:
               console.log('WARNING: date_field_widget_form() - unsupported grain! (' + grain + ')');
               break;
@@ -279,12 +283,6 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
   }
 }
 
-// When the date object comes into these functions, it is merely the current JavaScript Date object.
-
-
-/**
- *
- */
 function _date_grain_widget_year(date, instance, attributes, value_set, value2_set, item_date) {
   try {
     // Determine the current year and the range of year(s) to provide
@@ -446,9 +444,31 @@ function _date_grain_widget_minute(date, instance, attributes, value_set, value2
   catch (error) { console.log('_date_grain_widget_minute', error); }
 }
 
-function _date_grain_widget_second(date, instance, attributes, value_set, item_date) {
+function _date_grain_widget_second(date, instance, attributes, value_set, value2_set, item_date, _value) {
   try {
+    // Determine the current second.
+    var second = parseInt(date.getSeconds());
 
+    // Build the options.
+    var options = {};
+    for (var i = 0; i <= 59; i ++) {
+      var text = '' + i;
+      if (text.length == 1) { text = '0' + text; }
+      options[i] = text;
+    }
+
+    // Parse the second from the item's value, if it is set.
+    if (value_set && _value == 'value') { second = parseInt(item_date.getSeconds()); }
+    else if (value2_set && _value == 'value2') { second = parseInt(item_date.getSeconds()); }
+
+    // Build and theme the select list.
+    return {
+      prefix: theme('date_label', { title: t('Second') }),
+      type: 'date_select',
+      value: second,
+      attributes: attributes,
+      options: options
+    };
   }
   catch (error) { console.log('_date_grain_widget_second', error); }
 }
@@ -524,6 +544,7 @@ function _date_grain_widgets_ux_wrap(items, delta, _widget_year, _widget_month, 
   }
   catch (error) { console.log('_date_grain_widgets_ux_wrap', error); }
 }
+
 /**
  *
  * @param value
@@ -1033,63 +1054,79 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
         result.timezone = timezone;
       }
 
-      $.each(field.settings.granularity, function(grain, value) {
+      function _date_set_attribute_on_value(grain, value) {
 
-        var date = null;
+        var d = null;
         if (_value == 'value') {
-          date = new Date(parts[0]);
+          d = new Date(parts[0]);
           if (have_item) {
             var offset = parseInt(form.elements[field.field_name][langcode][delta].item.offset);
             if (offset) { result.offset = offset; }
             if (date_apple_device() && offset) {
-              date = new Date(date.toUTCString());
-              date = date.getTime() / 1000;
-              date -= parseInt(offset);
-              date = new Date(date * 1000);
+              d = new Date(d.toUTCString());
+              d = d.getTime() / 1000;
+              d -= parseInt(offset);
+              d = new Date(d * 1000);
             }
           }
         }
         else if (_value == 'value2') {
-          date = new Date(parts[1]);
+          d = new Date(parts[1]);
           if (have_item) {
             var offset2 = parseInt(form.elements[field.field_name][langcode][delta].item.offset2);
             if (offset2) { result.offset2 = offset2; }
             if (date_apple_device() && offset2) {
-              date = new Date(date.toUTCString());
-              date = date.getTime() / 1000;
-              date -= parseInt(offset2);
-              date = new Date(date * 1000);
+              d = new Date(d.toUTCString());
+              d = d.getTime() / 1000;
+              d -= parseInt(offset2);
+              d = new Date(d * 1000);
             }
           }
         }
 
-        if (value) {
-          switch (grain) {
-            case 'year':
-              result[_value].year = date.getFullYear();
-              break;
-            case 'month':
-              result[_value].month = parseInt(date.getMonth()) + 1;
-              break;
-            case 'day':
-              result[_value].day = parseInt(date.getDate());
-              break;
-            case 'hour':
-              result[_value].hour = parseInt(date.getHours());
-              if (!date_military(instance)) {
-                if (result[_value].hour >= 12) {
-                  result[_value].hour = result[_value].hour % 12;
-                  result[_value].ampm = 'pm';
+        if (instance.widget.type == 'date_text') {
+          result[_value].date = date(instance.widget.settings.input_format, d);
+          // Support seconds.
+          result[_value].date = result[_value].date.replace("s", d.getSeconds());
+        }
+        else {
+           // instance.widget.type == 'date_select'.
+          if (value) {
+            switch (grain) {
+              case 'year':
+                result[_value].year = date.getFullYear();
+                break;
+              case 'month':
+                result[_value].month = parseInt(date.getMonth()) + 1;
+                break;
+              case 'day':
+                result[_value].day = parseInt(date.getDate());
+                break;
+              case 'hour':
+                result[_value].hour = parseInt(date.getHours());
+                if (!date_military(instance)) {
+                  if (result[_value].hour >= 12) {
+                    result[_value].hour = result[_value].hour % 12;
+                    result[_value].ampm = 'pm';
+                  }
                 }
-              }
-              break;
-            case 'minute':
-              result[_value].minute = '' + parseInt(date.getMinutes());
-              if (result[_value].minute.length == 1) { result[_value].minute = '0' + result[_value].minute; }
-              break;
+                break;
+              case 'minute':
+                result[_value].minute = '' + parseInt(date.getMinutes());
+                if (result[_value].minute.length == 1) { result[_value].minute = '0' + result[_value].minute; }
+                break;
+            }
           }
         }
-      });
+      }
+
+      if (instance.widget.type == 'date_text') {
+        _date_set_attribute_on_value(null, null);
+      }
+      else {
+         // instance.widget.type == 'date_select'.
+        $.each(field.settings.granularity, _date_set_attribute_on_value);
+      }
 
     });
 
@@ -1149,4 +1186,229 @@ function theme_date_label(variables) {
         '</strong></div>';
   }
   catch (error) { console.log('theme_date_label - ' + error); }
+}
+
+/**
+ * Implements hook_views_exposed_filter().
+ */
+function date_views_exposed_filter(form, form_state, element, filter, field) {
+  try {
+
+    // Partially implemented exposed operator.
+    if (filter.options.expose.use_operator) {
+      form.elements[filter.options.expose.operator] = {
+        title: t("Operator"),
+        type: "select",
+        options: {
+          "&lt;": "Is less than",
+          "&lt;=": "Is less than or equal to",
+          "=": "Is equal to",
+          "!=": "Is not equal to",
+          "&gt;=": "Is greater than or equal to",
+          "&gt;": "Is greater than",
+          "between": "Is between",
+          "not between": "Is not between",
+          "empty": "Is empty (NULL)",
+          "not empty": "Is not empty (NOT NULL)",
+          "regular_expression": "Regular expression",
+          "contains": "Contains"
+        }
+      }
+    }
+
+    // Convert the item into a hidden field that will have its value populated dynamically by the widget. We'll store
+    // the value (and potential value2) within the element using this format: YYYY-MM-DD HH:MM:SS|YYYY-MM-DD HH:MM:SS
+    element.type = 'hidden';
+
+    element.attributes = {
+      name: filter.definition.field
+    };
+
+    // Minute increment.
+    var increment = 1;
+
+    var value_set = false;
+    var value2_set = false;
+
+    // Grab the current date.
+    var date = new Date();
+
+    // Get the item date and offset, if any.
+    var date_and_offset = _date_get_item_and_offset(items, delta, 'value', value_set, value2_set, field);
+    var item_date = date_and_offset.item_date;
+    var offset = date_and_offset.offset;
+
+    var military = true;
+
+    // For each grain of the granularity, add it as a child to the form element. As we
+    // build the child widgets we'll set them aside one by one that way we can present
+    // the inputs in a desirable order later at render time.
+    var _widget_year = null;
+    var _widget_month = null;
+    var _widget_day = null;
+    var _widget_hour = null;
+    var _widget_minute = null;
+    var _widget_second = null;
+    var _widget_ampm = null;
+
+    // Build a fake instance for widget building.
+    var instance = {widget: {settings: {year_range: filter.options.year_range}}};
+
+    // Supported grains.  Do not build widgets for grains lower than the filter
+    // wants.
+    var grains = ['second', 'minute', 'hour', 'day', 'month', 'year'];
+
+    $.each(field.settings.granularity, function(grain, value) {
+      if (value && grains.indexOf(grain) >= grains.indexOf(filter.options.granularity)) {
+
+        // Build a unique html element id for this select list. Set up an
+        // onclick handler and send it the id of the hidden input that will
+        // hold the date value.
+        var id = element.options.attributes.id
+        id += '-' + grain;
+        var attributes = {
+          id: id,
+          onchange: "date_select_onchange(this, '" + element.options.attributes.id + "', '" + grain + "', " + military + ", " + increment + ", " + offset + ")"
+        };
+        switch (grain) {
+
+          // YEAR
+          case 'year':
+            _widget_year = _date_grain_widget_year(date, instance, attributes);
+            break;
+
+          // MONTH
+          case 'month':
+            _widget_month = _date_grain_widget_month(date, instance, attributes);
+            break;
+
+          // DAY
+          case 'day':
+            _widget_day = _date_grain_widget_day(date, instance, attributes);
+            break;
+
+          // HOUR
+          case 'hour':
+            _widget_hour = _date_grain_widget_hour(date, instance, attributes, false, false, null, military);
+
+            // Add an am/pm selector if we're not in military time. Hang onto the old value so we
+            // can prevent the +/- 12 adjustment from happening if the user selects the same
+            // thing twice.
+            if (!military) {
+              var onclick = attributes.onchange.replace(grain, 'ampm') +
+                  '; this.date_ampm_old_value = this.value;';
+              var ampm_value =  parseInt(item_date.getHours()) < 12 ? 'am' : 'pm';
+              _widget_ampm = {
+                type: 'select',
+                attributes: {
+                  id: attributes.id.replace(grain, 'ampm'),
+                  onclick: onclick,
+                  date_ampm_original_value: ampm_value
+                },
+                value: ampm_value,
+                options: {
+                  am: 'am',
+                  pm: 'pm'
+                }
+              };
+            }
+            break;
+
+          // MINUTE
+          case 'minute':
+            _widget_minute = _date_grain_widget_minute(date, instance, attributes, false, false, null, false, 1);
+            break;
+
+          // SECOND
+          case 'second':
+            _widget_second = _date_grain_widget_second(date, instance, attributes);
+            break;
+
+          default:
+            console.log('WARNING: date_field_widget_form() - unsupported grain! (' + grain + ')');
+            break;
+        }
+      }
+    });
+
+    var items = {0: element};
+    var delta = 0;
+    //Wrap the widget with some better UX.
+    _date_grain_widgets_ux_wrap(
+        items,
+        delta,
+        _widget_year,
+        _widget_month,
+        _widget_day,
+        _widget_hour,
+        _widget_minute,
+        _widget_second,
+        _widget_ampm
+    );
+
+    element = items[0];
+    element.default_value = date_yyyy_mm_dd_hh_mm_ss(date_yyyy_mm_dd_hh_mm_ss_parts(date));
+    element.value_callback = 'date_views_exposed_filter_value';
+
+    form.submit.unshift('date_views_exposed_filter_submit');
+    // The filter is a nested array resulting in a parameter such as
+    // field_date_value[value][date], but field_date_value is the name of this
+    // element, so the submit handler will rename the field.
+    if (typeof form['rename_elements'] == 'undefined') {
+      form['rename_elements'] = {};
+    }
+    form['rename_elements'][element.attributes.name] = element.attributes.name + '[value][date]';
+  }
+  catch (error) { console.log('date_views_exposed_filter - ' + error); }
+}
+
+/**
+ * Submit handler for views_exposed_filter forms containing date filters.
+ *
+ * Renames elements in form_state.values according to the mapping in
+ * form['rename_elements'].
+ */
+function date_views_exposed_filter_submit(form, form_state) {
+  try {
+    if (typeof form['rename_elements'] != 'undefined') {
+      $.each(form['rename_elements'], function (oldName, newName) {
+        form_state.values[newName] = form_state.values[oldName];
+        delete form_state.values[oldName];
+      });
+    }
+  }
+  catch (error) { console.log('date_views_exposed_filter_submit - ' + error); }
+}
+
+/**
+ * Value callback for date views exposed filter.
+ *
+ * Strips out grains not supported by the filter.
+ */
+function date_views_exposed_filter_value(id, element) {
+  try {
+    switch (element.filter.options.granularity) {
+      case 'year':
+        var length = 4;
+        break;
+      case 'month':
+        var length = 7;
+        break;
+      case 'day':
+        var length = 10;
+        break;
+      case 'hour':
+        var length = 13;
+        break;
+      case 'minute':
+        var length = 16;
+        break;
+      case 'second':
+      default:
+        var length = 19;
+        break;
+    }
+    return $('#' + id).val().substr(0, length)
+  }
+  catch (error) { console.log('date_views_exposed_filter_value - ' + error); }
 }
