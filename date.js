@@ -7,7 +7,7 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
     //console.log(field);
     //console.log(instance);
     //console.log(display);
-    //console.log('ITEMS', items);
+    //console.log(items);
     //console.log('date_formats', drupalgap.date_formats);
     //console.log('date_types', drupalgap.date_types);
 
@@ -86,7 +86,6 @@ function date_field_formatter_view(entity_type, entity, field, instance, langcod
   }
   catch (error) { console.log('date_field_formatter_view - ' + error); }
 }
-
 /**
  * Implements hook_field_widget_form().
  */
@@ -279,12 +278,6 @@ function date_field_widget_form(form, form_state, field, instance, langcode, ite
   }
 }
 
-// When the date object comes into these functions, it is merely the current JavaScript Date object.
-
-
-/**
- *
- */
 function _date_grain_widget_year(date, instance, attributes, value_set, value2_set, item_date) {
   try {
     // Determine the current year and the range of year(s) to provide
@@ -1033,63 +1026,79 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
         result.timezone = timezone;
       }
 
-      $.each(field.settings.granularity, function(grain, value) {
+      function _date_set_attribute_on_value(grain, value) {
 
-        var date = null;
+        var d = null;
         if (_value == 'value') {
-          date = new Date(parts[0]);
+          d = new Date(parts[0]);
           if (have_item) {
             var offset = parseInt(form.elements[field.field_name][langcode][delta].item.offset);
             if (offset) { result.offset = offset; }
             if (date_apple_device() && offset) {
-              date = new Date(date.toUTCString());
-              date = date.getTime() / 1000;
-              date -= parseInt(offset);
-              date = new Date(date * 1000);
+              d = new Date(d.toUTCString());
+              d = d.getTime() / 1000;
+              d -= parseInt(offset);
+              d = new Date(d * 1000);
             }
           }
         }
         else if (_value == 'value2') {
-          date = new Date(parts[1]);
+          d = new Date(parts[1]);
           if (have_item) {
             var offset2 = parseInt(form.elements[field.field_name][langcode][delta].item.offset2);
             if (offset2) { result.offset2 = offset2; }
             if (date_apple_device() && offset2) {
-              date = new Date(date.toUTCString());
-              date = date.getTime() / 1000;
-              date -= parseInt(offset2);
-              date = new Date(date * 1000);
+              d = new Date(d.toUTCString());
+              d = d.getTime() / 1000;
+              d -= parseInt(offset2);
+              d = new Date(d * 1000);
             }
           }
         }
 
-        if (value) {
-          switch (grain) {
-            case 'year':
-              result[_value].year = date.getFullYear();
-              break;
-            case 'month':
-              result[_value].month = parseInt(date.getMonth()) + 1;
-              break;
-            case 'day':
-              result[_value].day = parseInt(date.getDate());
-              break;
-            case 'hour':
-              result[_value].hour = parseInt(date.getHours());
-              if (!date_military(instance)) {
-                if (result[_value].hour >= 12) {
-                  result[_value].hour = result[_value].hour % 12;
-                  result[_value].ampm = 'pm';
+        if (instance.widget.type == 'date_text') {
+          result[_value].date = date(instance.widget.settings.input_format, d);
+          // Support seconds.
+          result[_value].date = result[_value].date.replace("s", d.getSeconds());
+        }
+        else {
+           // instance.widget.type == 'date_select'.
+          if (value) {
+            switch (grain) {
+              case 'year':
+                result[_value].year = date.getFullYear();
+                break;
+              case 'month':
+                result[_value].month = parseInt(date.getMonth()) + 1;
+                break;
+              case 'day':
+                result[_value].day = parseInt(date.getDate());
+                break;
+              case 'hour':
+                result[_value].hour = parseInt(date.getHours());
+                if (!date_military(instance)) {
+                  if (result[_value].hour >= 12) {
+                    result[_value].hour = result[_value].hour % 12;
+                    result[_value].ampm = 'pm';
+                  }
                 }
-              }
-              break;
-            case 'minute':
-              result[_value].minute = '' + parseInt(date.getMinutes());
-              if (result[_value].minute.length == 1) { result[_value].minute = '0' + result[_value].minute; }
-              break;
+                break;
+              case 'minute':
+                result[_value].minute = '' + parseInt(date.getMinutes());
+                if (result[_value].minute.length == 1) { result[_value].minute = '0' + result[_value].minute; }
+                break;
+            }
           }
         }
-      });
+      }
+
+      if (instance.widget.type == 'date_text') {
+        _date_set_attribute_on_value(null, null);
+      }
+      else {
+         // instance.widget.type == 'date_select'.
+        $.each(field.settings.granularity, _date_set_attribute_on_value);
+      }
 
     });
 
