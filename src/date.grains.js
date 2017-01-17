@@ -159,9 +159,31 @@ function _date_grain_widget_minute(date, instance, attributes, value_set, value2
   catch (error) { console.log('_date_grain_widget_minute', error); }
 }
 
-function _date_grain_widget_second(date, instance, attributes, value_set, item_date) {
+function _date_grain_widget_second(date, instance, attributes, value_set, value2_set, item_date, _value) {
   try {
+    // Determine the current second.
+    var second = parseInt(date.getSeconds());
 
+    // Build the options.
+    var options = {};
+    for (var i = 0; i <= 59; i ++) {
+      var text = '' + i;
+      if (text.length == 1) { text = '0' + text; }
+      options[i] = text;
+    }
+
+    // Parse the second from the item's value, if it is set.
+    if (value_set && _value == 'value') { second = parseInt(item_date.getSeconds()); }
+    else if (value2_set && _value == 'value2') { second = parseInt(item_date.getSeconds()); }
+
+    // Build and theme the select list.
+    return {
+      prefix: theme('date_label', { title: t('Second') }),
+      type: 'date_select',
+      value: second,
+      attributes: attributes,
+      options: options
+    };
   }
   catch (error) { console.log('_date_grain_widget_second', error); }
 }
