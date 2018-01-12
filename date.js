@@ -1085,7 +1085,9 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
         }
 
         if (instance.widget.type == 'date_text') {
-          result[_value].date = date(instance.widget.settings.input_format, d);
+          var format = instance.widget.settings.input_format == 'custom' ?
+            instance.widget.settings.input_format_custom : instance.widget.settings.input_format;
+          result[_value].date = date(format, d);
           // Support seconds.
           result[_value].date = result[_value].date.replace("s", d.getSeconds());
         }
@@ -1154,7 +1156,7 @@ function theme_datetime(variables) {
     // Render the widget based on its type.
     var widget_type = variables.field_info_instance.widget.type;
     var widget_function = 'theme_' + widget_type;
-    if (drupalgap_function_exists(widget_function)) {
+    if (function_exists(widget_function)) {
       var fn = window[widget_function];
       html += fn.call(null, variables);
     }
