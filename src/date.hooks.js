@@ -86,7 +86,13 @@ function date_assemble_form_state_into_field(entity_type, bundle, form_state_val
         }
 
         if (instance.widget.type == 'date_text') {
-          result[_value].date = date(instance.widget.settings.input_format, d);
+          if (instance.widget.settings.input_format == 'custom') {
+            var format = instance.widget.settings.input_format_custom;
+          }
+          else {
+            var format = instance.widget.settings.input_format;
+          }
+          result[_value].date = date(format, d);
           // Support seconds.
           result[_value].date = result[_value].date.replace("s", d.getSeconds());
         }
